@@ -1,0 +1,4 @@
+{
+  "description": "Votive budget mode (optional, event driven, no network)",
+  "modules": ["./register.js"]
+}

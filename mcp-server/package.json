@@ -1,0 +1,11 @@
+{
+  "name": "votive-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MCP server exposing Votive's on-demand custom notify as a native tool, registered globally so any Claude Code session can call it.",
+  "main": "index.js",
+  "type": "commonjs",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1"
+  }
+}

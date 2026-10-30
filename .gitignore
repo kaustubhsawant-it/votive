@@ -1,0 +1,15 @@
+# XcodeGen regenerates this — never commit it.
+Votive.xcodeproj/
+*.xcodeproj
+
+# Build output
+build/
+build_release/
+DerivedData/
+dist/
+*.dmg
+
+# MCP server dependencies — installed by install.sh, not checked in.
+mcp-server/node_modules/
+
+.DS_Store

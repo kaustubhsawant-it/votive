@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- AGEN-46 spike, throw-away: can a WinForms app have a native taskbar button with a state icon, an overlay
+       badge, a progress fill and a hover card it draws itself, using hand-written COM interop only?
+       It shares the real model and badge drawing with the app. No packages, no networking. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>SpikeTaskbarButton</AssemblyName>
+    <RootNamespace>Spike</RootNamespace>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Remove="System.Net.Http" />
+    <Compile Include="..\Votive.Win\TaskbarModel.cs" />
+    <Compile Include="..\Votive.Win\StateResolver.cs" />
+    <Compile Include="..\Votive.Win\Badge.cs" />
+    <Compile Include="..\Votive.Win\Format.cs" />
+  </ItemGroup>
+
+</Project>

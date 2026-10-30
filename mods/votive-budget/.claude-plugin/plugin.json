@@ -1,0 +1,6 @@
+{
+  "name": "votive-budget",
+  "version": "0.1.0",
+  "description": "Optional budget mode for Claude Code: above your plan-usage level, sessions stay light unless you mark them heavy. Reads usage only, never sends prompts.",
+  "author": { "name": "Votive" }
+}

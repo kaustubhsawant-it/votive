@@ -1,0 +1,61 @@
+name: Votive
+options:
+  bundleIdPrefix: dev.votive
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    # --- No Apple Developer account required: "Sign to Run Locally" (ad-hoc) ---
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+    PROVISIONING_PROFILE_SPECIFIER: ""
+    ENABLE_HARDENED_RUNTIME: NO
+    # --- Language / versioning ---
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "1.5.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # --- Universal (Apple Silicon + Intel) ---
+    ARCHS: "$(ARCHS_STANDARD)"
+  configs:
+    Debug:
+      ONLY_ACTIVE_ARCH: YES
+    Release:
+      ONLY_ACTIVE_ARCH: NO
+
+targets:
+  Votive:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Votive
+    settings:
+      base:
+        PRODUCT_NAME: "Votive"
+        PRODUCT_BUNDLE_IDENTIFIER: dev.votive.Votive
+        GENERATE_INFOPLIST_FILE: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Menu-bar-only accessory app: no Dock icon, no app menu.
+        INFOPLIST_KEY_LSUIElement: YES
+        INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.developer-tools"
+        INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026"
+        # Lets the app raise the exact Terminal/iTerm tab of a clicked agent (one-time prompt).
+        INFOPLIST_KEY_NSAppleEventsUsageDescription: "Votive focuses the terminal window of the agent you click."
+        COMBINE_HIDPI_IMAGES: YES
+
+schemes:
+  Votive:
+    build:
+      targets:
+        Votive: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
