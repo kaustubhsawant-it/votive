@@ -145,3 +145,9 @@ test('install.sh runs the migration, copies the shims and removes the old login 
   assert.match(sh, /bootout "gui\/\$UID_\/\$OLD_LABEL"/);
   assert.match(sh, /claude mcp remove agent-overlay/);
 });
+
+test('the login item restarts Votive after a crash but not after a normal Quit', () => {
+  const plist = fs.readFileSync(path.join(S, 'dev.votive.Votive.plist'), 'utf8');
+  assert.match(plist, /<key>KeepAlive<\/key>\s*<dict>\s*<key>SuccessfulExit<\/key>\s*<false\/>\s*<\/dict>/, 'KeepAlive only on an unsuccessful exit');
+  assert.ok(!/<key>KeepAlive<\/key>\s*<true\/>/.test(plist), 'a plain KeepAlive=true would bring a quit app straight back');
+});

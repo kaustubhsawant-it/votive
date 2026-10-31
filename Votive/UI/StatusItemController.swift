@@ -490,8 +490,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         sub.addItem(.separator())
         sub.addItem(.sectionHeader(title: "Developer tools"))
-        addToggle(sub, title: "Ports: watch and free", on: portToolsOn, action: #selector(togglePortTools))
-        sub.items.last?.toolTip = "Off by default. Adds a Ports item to the menu: a short list of ports you watch, who is using each, and a button to stop that program (it asks first). Only programs you own, never an agent session."
+        addToggle(sub, title: "Ports: watch, pause and stop", on: portToolsOn, action: #selector(togglePortTools))
+        sub.items.last?.toolTip = "Off by default. Adds a Ports item to the menu: the ports you watch and every port that is listening, who is using each, and a switch to pause that program or stop it (both ask first). Only programs you own, never an agent session."
 
         sub.addItem(.separator())
         sub.addItem(.sectionHeader(title: "Sounds"))

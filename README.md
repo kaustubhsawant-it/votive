@@ -152,12 +152,15 @@ behaves differently.
 - **Prompt snippets.** Reusable prompts you can copy with one click, stored in
   `~/.votive/snippets.json`.
 - **Ports (for developers, off by default).** Turn on **Settings → Developer tools → Ports** and
-  a **Ports** item appears: a short list of the ports you watch (3000, 5173, 8080 ...), each shown
-  as free or in use and by which program. Hover a busy port and choose **Stop** to free it: you
-  confirm a dialog that names the program, it is asked to quit (SIGTERM), and only if it refuses do
-  you get a second dialog to force it. It can stop only your own programs, never an agent session,
-  Votive itself or a macOS program, and no agent can use it. The list is `~/.votive/ports.json`.
-  It needs no administrator rights and cannot block a port at the firewall.
+  a **Ports** item appears. It lists the ports you watch (3000, 5173, 8080 ...) and, under **All
+  listening ports**, everything on your Mac that listens: which program, where it was started, whether
+  only this Mac or your whole network can reach it, and what the port is usually used for. For your own
+  programs each row has a **Pause** switch (freezes the program but keeps its port, so you can free the
+  CPU or hold a server and resume it later) and **Stop** (asks it to quit; a second dialog is needed to
+  force it). Both ask first and add a warning on database ports. They never touch an agent session,
+  Votive itself, another user's program or a macOS program, and no agent can use them. If Votive paused
+  something it offers to resume it when you quit, and shows it as paused after a restart. The watch list
+  is `~/.votive/ports.json`. It needs no administrator rights and cannot block a port at the firewall.
 
 ## Control it by asking your agent
 

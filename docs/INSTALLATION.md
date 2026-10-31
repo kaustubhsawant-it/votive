@@ -97,8 +97,9 @@ node Scripts/install-agents.js --list          # show what's detected, change no
 
 ### What auto-start actually means
 
-The LaunchAgent (`dev.votive.Votive.plist`) sets `RunAtLoad` + `KeepAlive` — the app
-starts at every login and macOS relaunches it automatically if it ever quits or crashes
+The LaunchAgent (`dev.votive.Votive.plist`) sets `RunAtLoad` and a conditional `KeepAlive` — the app
+starts at every login and macOS relaunches it automatically if it crashes (a normal **Quit** stays
+quit until your next login, or until you open Votive again)
 (`ProcessType: Interactive`, `LimitLoadToSessionType: Aqua`, so it only loads in a real GUI
 login session, never headless/SSH).
 

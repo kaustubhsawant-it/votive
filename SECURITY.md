@@ -52,11 +52,15 @@ names, prompts or any other text an agent could influence. AppleScript runs thro
 
 **The optional Ports tool can end a program, so it is narrow.** It is off by default. When on, it runs
 `/usr/sbin/lsof` with fixed arguments (no shell) and, only after you confirm a dialog naming the
-program, sends one signal to that one process id. Just before sending it checks again that the
+program, sends one signal to that one process id (SIGTERM to ask it to quit, SIGSTOP to freeze it, SIGCONT to
+continue it). Just before sending it checks again that the
 same process still listens on that port, so a recycled process id is never hit. It refuses your
 agent sessions, Votive, programs owned by another user and programs under `/System`, `/usr/libexec`,
 `/usr/sbin` and `/sbin`; macOS itself refuses anything you cannot already stop with `kill`. The
-default button in the dialog is Cancel. No MCP tool or setting an agent can write reaches it
+default button in the dialog is Cancel. A program it froze is remembered in `~/.votive/paused.json`, which is
+re-validated on every read (same user, still frozen, same process start time), so an edited or stale file
+cannot make it signal another process; quitting Votive asks to resume what it froze, and command-line
+arguments, which can hold secrets, are never read. No MCP tool or setting an agent can write reaches it
 (`tests/ports.test.js` fails if one does).
 
 **Alert text is plain text.** Notify panels show messages as plain labels: no links, no HTML,

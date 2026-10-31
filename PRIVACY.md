@@ -37,7 +37,7 @@ Delete this note once the server has no dependencies (AGEN-21).]*
 | Process information | macOS (`sysctl`, `/bin/ps`, `pgrep`) | Whether a session's process still runs, and which terminal hosts it |
 | Agent configuration files | `~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.gemini/settings.json`, `~/.qwen/settings.json`, `~/.cursor/hooks.json`, `~/.codeium/windsurf/hooks.json`, `~/.copilot/hooks/` | The installer and `diagnose` check and edit the hook entries |
 | Its own preferences | macOS preferences for `dev.votive.Votive` | Your menu settings |
-| Which programs listen on which TCP ports, only if you turn on **Settings → Developer tools → Ports** | `/usr/sbin/lsof` (program name, process id and port; nothing is sent anywhere) | The Ports item: whether each port you watch is free or in use |
+| Which programs listen on which TCP ports, only if you turn on **Settings → Developer tools → Ports** | `/usr/sbin/lsof` (program name, process id, port, whether it listens on this Mac only), then for each program macOS itself (`proc_pidpath`, working folder, whether it is frozen). Command-line arguments are never read. Nothing is sent anywhere. | The Ports item: every listening port, who uses it, free or in use, paused or not |
 
 The app itself reads the first seven rows, process information and, only when you turn Ports on, the list of listening ports. The hooks, the status-line
 wrapper, the MCP server and the installers read the rest.
@@ -56,6 +56,7 @@ wrapper, the MCP server and the installers read the rest.
 ~/.votive/settings.json                # Windows: the same settings as the macOS menu
 ~/.votive/snippets.json                # snippets you add
 ~/.votive/ports.json                   # optional Ports tool: the port numbers you chose to watch
+~/.votive/paused.json                  # optional Ports tool: programs it froze, so none is left frozen unnoticed
 ~/.votive/sounds/*                     # sounds you add
 ~/.votive/cache/*                      # short text from the optional meristem command
 ~/.votive/locks                        # empty folders that last for milliseconds
@@ -83,6 +84,7 @@ in `~/Library/Preferences/dev.votive.Votive.plist`; registering the MCP server r
 | Its folders, created if missing | `~/.votive/events/` and `~/.votive/usage/` (readable only by you) |
 | Your prompt snippets, when you add one | `~/.votive/snippets.json` |
 | The ports you watch, when you add one in the optional Ports tool (a plain list of numbers, at most 24) | `~/.votive/ports.json` |
+| Programs the optional Ports tool paused: process id, port, program name and the time the process started (to tell it from a later process that reuses the id). Checked every time it is read, emptied when you resume or quit. | `~/.votive/paused.json` |
 | Plan-usage history (percentages and reset times only), when the status-line wrapper runs | `~/.votive/usage/history/claude-code.jsonl` (readable only by you, trimmed past 1 MB) |
 | Budget settings, if you use budget mode | `~/.votive/budget/policy.json` (a mode, two levels, a short list of folders) |
 | Budget diagnostics counters, if you use the budget mod | `~/.votive/budget/diag.json` (counts per day, last 14 days, under 4 KB) |
@@ -130,8 +132,9 @@ Codex does not always record them; when it does not, nothing is shown.
 - **The app** runs `/bin/ps` to find which terminal hosts a session and `/usr/bin/osascript` to
   select that tab in Terminal or iTerm2 when you click a session. If you turn on the optional
   **Ports** tool it also runs `/usr/sbin/lsof` with fixed arguments (no shell) when you open the menu,
-  and, only after you confirm a named program in a dialog, sends it one quit signal (SIGTERM; a
-  second confirmation is needed to force it with SIGKILL). It can only signal your own programs, never
+  and, only after you confirm a named program in a dialog, sends it one signal: SIGTERM to ask it to
+  quit (a second confirmation is needed for SIGKILL), or SIGSTOP / SIGCONT to pause and resume it.
+  A program Votive paused is remembered in `paused.json`; when you quit Votive it asks whether to resume it. It can only signal your own programs, never
   an agent session, Votive itself or a macOS program, and it opens no network socket. No agent can
   reach it: the MCP tools have nothing for ports.
 - **The hook** runs `/bin/ps` to find the agent's process id.

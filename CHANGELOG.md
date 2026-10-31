@@ -5,6 +5,24 @@ All notable changes to Votive (called Agent Overlay until 2026-10-26) are docume
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-10-31
+
+### Fixed
+- **Quit Votive now stays quit.** The login item restarted the app after a normal Quit within about two
+  seconds (its `KeepAlive` was unconditional). It now restarts only after a crash. Run `./Scripts/install.sh`
+  again to update the installed login item.
+
+### Added
+- **Ports: Pause switch and the all-ports view.** In **Settings → Developer tools → Ports**, each of your
+  own programs on a port now has a **Pause** switch (freezes the program with SIGSTOP, keeps its port;
+  click again to resume) next to **Stop**. **All listening ports** lists everything that listens: the
+  program, the folder it was started from, whether only this Mac or your network can reach it, and what
+  the port is usually for; macOS and other users' programs are listed read-only. Programs Votive paused are
+  remembered in `~/.votive/paused.json` and re-checked on every read; quitting Votive asks whether to
+  resume them (logging out or shutting down resumes them silently). Stop on a paused program continues
+  it first. Stop and Pause add a warning on database ports. Still never an agent session, Votive itself,
+  another user's program or a macOS program, and not reachable from the MCP tools.
+
 ## [1.5.0] — 2026-10-30
 
 ### Changed

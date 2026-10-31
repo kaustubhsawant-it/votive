@@ -8,11 +8,15 @@
     <array>
         <string>__APP_BINARY__</string>
     </array>
-    <!-- Start at login and self-restart if it ever dies. -->
+    <!-- Start at login, and restart only if it crashes (exits with an error). A normal Quit (exit 0)
+         stays quit until the next login; with a plain KeepAlive=true launchd would bring it straight back. -->
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
-    <true/>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
     <!-- GUI/menu-bar app: only load in an Aqua login session. -->
     <key>ProcessType</key>
     <string>Interactive</string>

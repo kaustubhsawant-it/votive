@@ -17,6 +17,8 @@ enum Paths {
     static let snippets = root.appendingPathComponent("snippets.json")
     /// The ports you chose to watch (Settings → Developer → Ports). A plain array of numbers.
     static let ports = root.appendingPathComponent("ports.json")
+    /// Programs Votive froze with Ports → Pause, so none is left frozen unnoticed. Checked every time it is read.
+    static let paused = root.appendingPathComponent("paused.json")
     /// Your own alert sounds (Settings → Sounds → Add Sound File…).
     static let sounds = root.appendingPathComponent("sounds", isDirectory: true)
 

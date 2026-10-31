@@ -113,6 +113,7 @@ test('privacy: the Swift app has exactly the write calls PRIVACY.md describes', 
     'Services/AgentChanges.swift': 3,        // Undo in the Agent changes menu: puts one known preference back
     'Services/LegacySettings.swift': 2,      // one-time copy of the settings of the earlier app name (Agent Overlay)
     'Services/OverlayStore.swift': 2,        // deletes its own stale event files
+    'Services/PausedStore.swift': 2,         // ~/.votive and paused.json (programs the optional Ports tool froze)
     'Services/PortTools.swift': 2,           // ~/.votive and ports.json (optional Ports tool)
     'Services/SnippetStore.swift': 2,        // ~/.votive and snippets.json
     'Services/Sounds.swift': 2,              // sound choices in macOS preferences
