@@ -48,6 +48,7 @@ enum MenuBarIconRenderer {
     }
 
     static func image(for states: [AgentState],
+                      protectFirst: Int = 0,
                       shapes: Bool = false,
                       angle: CGFloat = 0,
                       pulseDimmed: Bool = false,
@@ -57,7 +58,7 @@ enum MenuBarIconRenderer {
                       minWidth: CGFloat = 0,
                       halo: Bool = false,
                       haloPhase: CGFloat? = nil) -> NSImage {
-        let shown = AgentState.menuBarSelection(states, max: maxDots)
+        let shown = AgentState.menuBarSelection(states, max: maxDots, protectFirst: protectFirst)
         let overflow = states.count - shown.count
         let overflowText = overflow > 0 ? "+\(overflow)" : ""
         let font = NSFont.systemFont(ofSize: 11, weight: .semibold)

@@ -72,6 +72,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         set { defaults.set(newValue, forKey: "customNotifyOn") }
     }
     /// Minutes of no `updatedAt` movement while busy before a session shows as stuck. 0 = off.
+    /// High-priority sessions: pinned ones sort first and can be the only ones that alert (see SessionPriority).
+    private let priority = PriorityStore()
+    private var rawSessions: [AgentSession] = []      // in the scanner's order, before pins are applied
+    private var pinnedCount = 0
+    private var alertsOnlyPriority: Bool {
+        get { defaults.bool(forKey: SessionPriority.onlyKey) }
+        set { defaults.set(newValue, forKey: SessionPriority.onlyKey) }
+    }
+
     /// Developer tools: the optional Ports item. Off by default; the menu shows nothing about ports until it is on.
     private var portToolsOn: Bool {
         get { defaults.bool(forKey: "portToolsOn") }
@@ -167,7 +176,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     // MARK: - Update
 
-    func update(_ sessions: [AgentSession]) {
+    func update(_ incoming: [AgentSession]) {
+        priority.prune(live: Set(incoming.map { $0.id }))
+        rawSessions = incoming
+        let pins = priority.pins, folders = priority.folders
+        let sessions = SessionPriority.order(incoming, pins: pins, folders: folders)
+        pinnedCount = SessionPriority.pinnedCount(sessions, pins: pins, folders: folders)
         // Captured before detectTransitions flips it true, so a custom notify already present
         // on the very first post-launch scan is recorded (never re-fires) but not alerted on —
         // same launch-quiet convention the state-transition alerts already follow.
@@ -281,6 +295,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         // so switching banners off does not also switch dialogs off.
         guard baselineEstablished else { return [] }
         var sounds = Set<SoundEvent>()
+        let onlyPriority = alertsOnlyPriority
+        let pins = priority.pins, folders = priority.folders
         for s in new {
             // prev stays optional on purpose. A session that shows up already finished —
             // a short run that starts and ends inside one scan window — has no previous
@@ -288,6 +304,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             // never told me" case this whole path exists for. nil counts as a change.
             let prev = prevStates[s.id]
             guard prev != s.state else { continue }
+            // "Only alert for high-priority sessions": automatic alerts and state-change sounds skip the rest.
+            // (A message you asked a session to send is not automatic and is never filtered.)
+            guard SessionPriority.shouldAlert(s, onlyPriority: onlyPriority, pins: pins, folders: folders) else { continue }
             if let event = SoundEvent(state: s.state), !(s.state == .done && prev == .stopped) {
                 sounds.insert(event)
             }
@@ -346,7 +365,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let states = sessions.map { $0.state }
         button.effectiveAppearance.performAsCurrentDrawingAppearance {
             button.image = MenuBarIconRenderer.image(
-                for: states, shapes: shapesMode, angle: angle, pulseDimmed: dimmed,
+                for: states, protectFirst: pinnedCount, shapes: shapesMode, angle: angle, pulseDimmed: dimmed,
                 alertAlpha: usageAlpha,
                 caption: carouselFrame?.caption,
                 contentAlpha: CGFloat(carouselFrame?.contentAlpha ?? 1),
@@ -401,6 +420,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         addUsageItems(menu)
 
+        let pinsNow = priority.pins, foldersNow = priority.folders
         menu.addItem(.sectionHeader(title: "Sessions"))
         if sessions.isEmpty {
             let none = NSMenuItem(title: "No agents running", action: nil, keyEquivalent: "")
@@ -413,7 +433,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
                     session: session,
                     stateImage: dotImage(for: session.state),
                     hostIcon: TerminalFocus.hostingApp(forPID: session.pid)?.icon,
-                    recap: recapLine(session))
+                    recap: recapLine(session),
+                    pinned: SessionPriority.isHighPriority(session, pins: pinsNow, folders: foldersNow))
                 item.submenu = actionsMenu(for: session)   // opens on hover
                 menu.addItem(item)
             }
@@ -482,6 +503,22 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         sub.items.last?.toolTip = "A Notification Center banner whenever any session finishes, needs you, errors or stops."
         addToggle(sub, title: "Pop-up on every state change", on: dialogAlertsOn, action: #selector(toggleDialogAlerts))
         sub.items.last?.toolTip = "A floating panel whenever any session finishes, needs you, errors or stops."
+        addToggle(sub, title: "Only alert for high-priority sessions", on: alertsOnlyPriority, action: #selector(toggleOnlyPriority))
+        sub.items.last?.toolTip = "Off by default. When on, banners, pop-ups and state-change sounds come only from sessions you marked High priority (hover a session in the menu). A message you asked a session to send always shows."
+        let marked = priority.folders.sorted { $0.value < $1.value }
+        if !marked.isEmpty {
+            let list = NSMenuItem(title: "High priority folders", action: nil, keyEquivalent: "")
+            let listMenu = NSMenu()
+            for (path, _) in marked {
+                let item = NSMenuItem(title: "Stop for " + (path as NSString).abbreviatingWithTildeInPath, action: #selector(removePriorityFolder(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = PinRef(key: path)
+                listMenu.addItem(item)
+            }
+            list.submenu = listMenu
+            list.toolTip = "Every session started in these folders is high priority. Click one to stop."
+            sub.addItem(list)
+        }
 
         sub.addItem(.separator())
         sub.addItem(.sectionHeader(title: "Agents"))
@@ -634,6 +671,23 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             addItem(menu, "Open terminal window", #selector(focusSession(_:)), ref, bold: true)
             menu.addItem(.separator())
         }
+        let pin = NSMenuItem(title: "High priority", action: #selector(togglePriority(_:)), keyEquivalent: "")
+        pin.target = self
+        pin.state = priority.isPinned(s.id) ? .on : .off
+        pin.image = NSImage(systemSymbolName: "pin", accessibilityDescription: nil)
+        pin.representedObject = PinRef(key: s.id)
+        pin.toolTip = "Keeps this session first in the menu and the dots. With Settings > Alerts > Only alert for high-priority sessions turned on, it is the only kind that alerts you."
+        menu.addItem(pin)
+        if !s.cwd.isEmpty {
+            let folder = NSMenuItem(title: "High priority for every session in this folder", action: #selector(toggleFolderPriority(_:)), keyEquivalent: "")
+            folder.target = self
+            folder.state = priority.isFolderMarked(s.cwd) ? .on : .off
+            folder.image = NSImage(systemSymbolName: "pin.circle", accessibilityDescription: nil)
+            folder.representedObject = PinRef(key: s.cwd)
+            folder.toolTip = "Sessions started in \((s.cwd as NSString).abbreviatingWithTildeInPath) become high priority by themselves, so you don't have to pin each new one. Only this exact folder."
+            menu.addItem(folder)
+        }
+        menu.addItem(.separator())
         if !s.cwd.isEmpty {
             addItem(menu, "Reveal folder in Finder", #selector(revealFolder(_:)), ref)
             addItem(menu, "Copy folder path", #selector(copyPath(_:)), ref)
@@ -772,6 +826,34 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func toggleCustomNotify() { customNotifyOn.toggle() }
 
     @objc private func toggleAgentWrites() { agentWritesAllowed.toggle() }
+
+    @objc private func toggleOnlyPriority() { alertsOnlyPriority.toggle() }
+
+    /// Pin or unpin a session, then redraw the dots in the new order (the menu is rebuilt each time it opens).
+    @objc private func togglePriority(_ sender: NSMenuItem) {
+        guard let ref = sender.representedObject as? PinRef else { return }
+        priority.toggle(ref.key)
+        applyPriorityOrder()
+    }
+
+    @objc private func toggleFolderPriority(_ sender: NSMenuItem) {
+        guard let ref = sender.representedObject as? PinRef else { return }
+        priority.toggleFolder(ref.key)
+        applyPriorityOrder()
+    }
+
+    @objc private func removePriorityFolder(_ sender: NSMenuItem) {
+        guard let ref = sender.representedObject as? PinRef else { return }
+        priority.toggleFolder(ref.key)
+        applyPriorityOrder()
+    }
+
+    private func applyPriorityOrder() {
+        let pins = priority.pins, folders = priority.folders
+        sessions = SessionPriority.order(rawSessions, pins: pins, folders: folders)
+        pinnedCount = SessionPriority.pinnedCount(sessions, pins: pins, folders: folders)
+        render(force: true)
+    }
 
     @objc private func togglePortTools() { portToolsOn.toggle() }
 
@@ -972,4 +1054,9 @@ private final class SessionRef {
     let cwd: String
     let id: String
     init(pid: Int32, cwd: String, id: String) { self.pid = pid; self.cwd = cwd; self.id = id }
+}
+
+private final class PinRef {
+    let key: String
+    init(key: String) { self.key = key }
 }

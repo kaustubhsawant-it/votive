@@ -56,9 +56,15 @@ enum AgentState: String, Equatable, CaseIterable {
 
     /// Which dots to draw when there are more sessions than the menu bar has room for: the most urgent
     /// ones win a seat (ties go to the earlier session), and the survivors keep their original order.
-    static func menuBarSelection(_ states: [AgentState], max: Int) -> [AgentState] {
+    /// The first `protectFirst` dots (the user's high-priority sessions) always keep a seat.
+    static func menuBarSelection(_ states: [AgentState], max: Int, protectFirst: Int = 0) -> [AgentState] {
         guard states.count > max else { return states }
-        let ranked = states.enumerated().sorted { ($0.element.sortPriority, $0.offset) < ($1.element.sortPriority, $1.offset) }
+        let protected = min(max, Swift.max(0, protectFirst))
+        let ranked = states.enumerated().sorted {
+            let a = $0.offset < protected ? -1 : $0.element.sortPriority
+            let b = $1.offset < protected ? -1 : $1.element.sortPriority
+            return (a, $0.offset) < (b, $1.offset)
+        }
         let keep = Set(ranked.prefix(max).map { $0.offset })
         return states.enumerated().filter { keep.contains($0.offset) }.map { $0.element }
     }

@@ -115,11 +115,12 @@ test('privacy: the Swift app has exactly the write calls PRIVACY.md describes', 
     'Services/OverlayStore.swift': 2,        // deletes its own stale event files
     'Services/PausedStore.swift': 2,         // ~/.votive and paused.json (programs the optional Ports tool froze)
     'Services/PortTools.swift': 2,           // ~/.votive and ports.json (optional Ports tool)
+    'Services/SessionPriority.swift': 3,     // pins and folder rules (which sessions are High priority) in macOS preferences
     'Services/SnippetStore.swift': 2,        // ~/.votive and snippets.json
     'Services/Sounds.swift': 2,              // sound choices in macOS preferences
     'Services/StatusCoordinator.swift': 1,   // ~/.votive/events
     'Services/UsageStore.swift': 1,          // ~/.votive/usage
-    'UI/StatusItemController.swift': 12,     // preferences (including the Let agents change settings switch and the Ports switch), ~/.votive/sounds
+    'UI/StatusItemController.swift': 13,     // preferences (including the Let agents change settings switch and the Ports switch), ~/.votive/sounds
   });
 });
 

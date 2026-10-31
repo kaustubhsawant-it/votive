@@ -9,8 +9,10 @@ final class AgentRowView: NSView {
     private let stateImage: NSImage
     private let hostIcon: NSImage?
     private let recap: String
+    private let pinned: Bool
 
-    init(session: AgentSession, stateImage: NSImage, hostIcon: NSImage?, recap: String) {
+    init(session: AgentSession, stateImage: NSImage, hostIcon: NSImage?, recap: String, pinned: Bool = false) {
+        self.pinned = pinned
         self.session = session
         self.stateImage = stateImage
         self.hostIcon = hostIcon
@@ -64,13 +66,27 @@ final class AgentRowView: NSView {
             .font: NSFont.systemFont(ofSize: 11), .foregroundColor: secondary]))
         let clip = NSMutableParagraphStyle()
         clip.lineBreakMode = .byTruncatingTail
-        let textWidth = max(0, bounds.width - textX - Self.trailing)
+        let pinRoom: CGFloat = pinned ? 16 : 0
+        let textWidth = max(0, bounds.width - textX - Self.trailing - pinRoom)
         line1.addAttribute(.paragraphStyle, value: clip, range: NSRange(location: 0, length: line1.length))
         line1.draw(in: NSRect(x: textX, y: 5, width: textWidth, height: 17))
 
         NSAttributedString(string: recap, attributes: [
             .font: NSFont.systemFont(ofSize: 11), .foregroundColor: secondary, .paragraphStyle: clip])
             .draw(in: NSRect(x: textX, y: 23, width: textWidth, height: 14))
+
+        // A small pin marks a High priority session.
+        if pinned, let pin = NSImage(systemSymbolName: "pin.fill", accessibilityDescription: "High priority")?
+            .withSymbolConfiguration(.init(pointSize: 9, weight: .regular)) {
+            let tintedPin = NSImage(size: pin.size, flipped: false) { rect in
+                pin.draw(in: rect)
+                secondary.set()
+                rect.fill(using: .sourceAtop)
+                return true
+            }
+            tintedPin.draw(in: NSRect(x: bounds.width - 30 - pin.size.width, y: (bounds.height - pin.size.height) / 2,
+                                      width: pin.size.width, height: pin.size.height))
+        }
 
         // Submenu arrow, in the same spot and style as the native arrows on items like
         // "Prompt snippets" (hovering the row opens the actions submenu).

@@ -28,6 +28,8 @@ Dropdown:  CLAUDE CODE USAGE · UPDATED JUST NOW
 > Votive is an independent community project. It is not made by, affiliated with or
 > endorsed by Anthropic, OpenAI, Google, GitHub, Cursor or any other agent's maker.
 
+**New to Votive?** The three-page illustrated [quick guide](docs/Votive-Quick-Guide.pdf) covers install, the dots and the menu.
+
 ## Requirements
 
 - macOS 14 (Sonoma) or later, Apple Silicon or Intel
@@ -148,6 +150,7 @@ behaves differently.
 - **Sounds.** A different sound for a notify, a session needing you, an error, stuck,
   stopped or done, for every agent, set under **Settings → Sounds** (macOS sounds or your
   own files in `~/.votive/sounds/`). Out of the box only the notify chimes.
+- **High priority sessions.** Hover a session in the menu and choose **High priority**. It moves to the front of the list and the menu-bar dots follow, and its dot is never squeezed out when you have more than six sessions. Turn on **Settings › Alerts › Only alert for high-priority sessions** to get banners, pop-ups and state-change sounds only from those sessions (a message you asked a session to send always shows). A pin lasts as long as the session and survives restarting Votive. To avoid pinning every new session, choose **High priority for every session in this folder**: any session you start in that exact folder is high priority from the start (stop it under **Settings › Alerts › High priority folders**).
 - **Stuck detection** with a threshold you can change (Off / 5 / 8 / 15 minutes).
 - **Prompt snippets.** Reusable prompts you can copy with one click, stored in
   `~/.votive/snippets.json`.

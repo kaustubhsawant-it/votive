@@ -5,6 +5,23 @@ All notable changes to Votive (called Agent Overlay until 2026-10-26) are docume
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-10-31
+
+### Added
+- **High priority sessions.** Hover a session and choose **High priority**: it sorts first in the menu and in the
+  menu-bar dots (in the order you pinned them), shows a small pin, and keeps its dot when there are more than six
+  sessions. **Settings › Alerts › Only alert for high-priority sessions** (off by default) limits banners, pop-ups and
+  state-change sounds to those sessions; a message you asked a session to send is never filtered. Pins are kept in
+  preferences, not in a new file, and dropped 14 days after a session stops. **High priority for every session in this
+  folder** makes every new session started in that exact folder high priority, so you do not pin each one; remove the
+  rule under Settings › Alerts › High priority folders. Not reachable from the MCP tools.
+
+### Changed
+- **Quick guide.** A three-page illustrated guide, `docs/Votive-Quick-Guide.pdf`: what Votive does, how to install it,
+  what each dot means, the menu, and fixes.
+- **New app icon.** Three overlapping lights (yellow, green, purple) blending where they meet, on a dark tile. Smooth
+  gradients, no gloss, and it stays readable down to 16 pixels. The menu-bar dots are unchanged.
+
 ## [1.6.0] — 2026-10-31
 
 ### Fixed
