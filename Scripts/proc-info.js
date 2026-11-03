@@ -3,8 +3,9 @@
 // Process ancestry, shared by the event hook (which agent is my parent?) and the notify CLI
 // (which session am I inside?). Read-only: it lists processes and walks parents, nothing else.
 //
-// macOS and Linux ask `ps` once per hop. Windows has no ps, and starting PowerShell is slow, so
-// it reads the whole process table in a single call and walks the chain in JavaScript. A pid is
+// macOS asks `ps` once per hop. Linux reads /proc/<pid>/stat directly (no program to start, and a minimal
+// install may have no `ps`). Windows has no ps, and starting PowerShell is slow, so it reads the whole process
+// table in a single call and walks the chain in JavaScript. A pid is
 // only ever passed as a validated integer in an argument list, never through a shell.
 //
 const { execFileSync } = require('child_process');
@@ -19,6 +20,30 @@ const MAX_PID = 2 ** 31 - 1;
 const validPid = (p) => Number.isInteger(p) && p > 0 && p <= MAX_PID;
 // "C:\\Program Files\\nodejs\\node.exe" -> "node", "-zsh" -> "zsh"
 const cleanName = (s) => path.basename(String(s).trim().replace(/\\/g, '/')).replace(/^-/, '').replace(/\.exe$/i, '');
+
+const LINUX_PROC = process.platform === 'linux' && fs.existsSync('/proc/self/stat');
+
+/**
+ * One line of /proc/<pid>/stat: "pid (comm) state ppid ...". The name may hold spaces and parentheses, so the
+ * fields after it are found from the LAST ")". Null for anything that does not parse.
+ */
+function parseProcStat(line) {
+  const s = String(line);
+  const open = s.indexOf('('), close = s.lastIndexOf(')');
+  if (open < 1 || close < open) return null;
+  const pid = parseInt(s.slice(0, open), 10);
+  const rest = s.slice(close + 1).trim().split(/\s+/);        // rest[0] is the state, rest[1] the parent
+  const ppid = parseInt(rest[1], 10);
+  if (!Number.isInteger(pid) || !Number.isInteger(ppid)) return null;
+  return { pid, ppid, name: cleanName(s.slice(open + 1, close)) };
+}
+
+function linuxHop(pid) {
+  try {
+    const node = parseProcStat(fs.readFileSync('/proc/' + pid + '/stat', 'utf8'));
+    return node && node.pid === pid ? node : null;
+  } catch (e) { return null; }
+}
 
 function posixHop(pid) {
   let out;
@@ -54,7 +79,7 @@ function ancestry(pid, maxHops) {
   let cur = pid;
   while (chain.length < hops && validPid(cur) && !seen.has(cur)) {
     seen.add(cur);
-    const node = process.platform === 'win32' ? windowsTable().get(cur) : posixHop(cur);
+    const node = process.platform === 'win32' ? windowsTable().get(cur) : (LINUX_PROC ? linuxHop(cur) : posixHop(cur));
     if (!node) break;
     chain.push(node);
     cur = node.ppid;
@@ -74,4 +99,4 @@ function isAlive(pid) {
   try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; }
 }
 
-module.exports = { ancestry, parentPid, isAlive, cleanName };
+module.exports = { ancestry, parentPid, isAlive, cleanName, parseProcStat };

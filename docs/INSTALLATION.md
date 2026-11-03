@@ -5,6 +5,16 @@ the install worked, how to uninstall cleanly, and how to troubleshoot the common
 Per-agent details (which events are hooked, manual setup for Goose, Cline, Amp and Aider) are in
 [AGENTS.md](AGENTS.md).
 
+## Install from a download (no Xcode needed)
+
+Get `Votive-<version>-mac.zip` from the [latest release](https://github.com/kaustubhsawant-it/votive/releases/latest),
+unzip it, and in Terminal run `./Scripts/install.sh` from inside the unzipped folder. It needs only Node.js.
+Do not double-click `Votive.app`: it is ad-hoc signed and not notarized, so macOS refuses it. The installer
+does the same steps as a source install except that it builds nothing, clears the "downloaded from the
+internet" flag on the one app it copies, and keeps a copy of the MCP server and its helper scripts in
+`~/.votive/release/` (so you can delete the download folder). Check the zip with
+`shasum -a 256 -c SHA256SUMS.txt`. The steps below describe the source install.
+
 ## Install
 
 ```sh

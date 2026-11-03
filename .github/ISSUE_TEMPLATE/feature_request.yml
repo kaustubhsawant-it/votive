@@ -1,0 +1,23 @@
+name: Idea or feature request
+description: Something you wish Votive did
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the situation first, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Votive to do?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What do you do today instead?
+  - type: markdown
+    attributes:
+      value: |
+        Votive keeps two promises, so some ideas will be declined: it never sends data off your Mac (there is no network code), and agents cannot change your files or settings through it without your say-so.

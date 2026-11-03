@@ -16,7 +16,8 @@ how to check the rest.
 
 ## The one time anything touches the network
 
-Building from source needs tools you install yourself first (`brew install xcodegen`, Xcode),
+Installing from a release zip needs only Node.js, and the installer builds nothing; you download the zip yourself
+from GitHub. Building from source needs tools you install yourself first (`brew install xcodegen`, Xcode),
 which download from their own sites. Votive's installer then runs `xcodegen` and `xcodebuild`
 on your Mac and fetches nothing. *[If the MCP server still uses the npm SDK when this ships, add:
 "`npm install` downloads its dependency once; it is pinned by `mcp-server/package-lock.json`."
@@ -55,6 +56,7 @@ wrapper, the MCP server and the installers read the rest.
 ~/.votive/budget/*.json                # optional budget mode: settings and counters
 ~/.votive/settings.json                # Windows: the same settings as the macOS menu
 ~/.votive/snippets.json                # snippets you add
+~/.votive/release/**                   # release-zip installs only: a copy of the MCP server and its helper scripts
 ~/.votive/ports.json                   # optional Ports tool: the port numbers you chose to watch
 ~/.votive/paused.json                  # optional Ports tool: programs it froze, so none is left frozen unnoticed
 ~/.votive/sounds/*                     # sounds you add
@@ -90,7 +92,10 @@ in `~/Library/Preferences/dev.votive.Votive.plist`; registering the MCP server r
 | Budget diagnostics counters, if you use the budget mod | `~/.votive/budget/diag.json` (counts per day, last 14 days, under 4 KB) |
 | Settings on Windows (the same keys as the menu settings on macOS) | `~/.votive/settings.json` |
 | Start with Windows, only if you turn it on in the tray menu | one value, `Votive`, under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` |
-| Menu settings (toggles, stuck threshold, and the switch "Let agents change settings") | macOS preferences for `dev.votive.Votive` |
+| Menu and window settings (toggles, stuck threshold, and the switch "Let agents change settings") | macOS preferences for `dev.votive.Votive` |
+| The colors you chose for the state dots (a state and a six-digit color each, nothing else) | macOS preferences for `dev.votive.Votive` |
+| What the Votive window remembers: the page you last had open, whether the insights card is shown, and your weekly target (a number from 10 to 100 that only the forecast reads) | macOS preferences for `dev.votive.Votive` |
+| The order you gave your sessions with **Move earlier / Move later**: a list of session ids (at most 100), kept until you reorder or the app is reset. It holds no other data about a session. | macOS preferences for `dev.votive.Votive` |
 | The sessions you marked **High priority**: each one's agent and session id, and when you marked it (at most 50; one you stop using is dropped after 14 days), and the folders you marked (full path, at most 50, kept until you remove them under Settings). Nothing about a session's content. | macOS preferences for `dev.votive.Votive` |
 | Settings of the app under its earlier name (Agent Overlay), copied once on first launch; the switch "Let agents change settings" is not copied, so you decide it again | macOS preferences for `dev.votive.Votive` (read from `app.agentoverlay.AgentOverlay`) |
 | The one-time move from the name Agent Overlay (run by the installer): moves `~/.agent-overlay` to `~/.votive`, leaves a link at the old path so agent sessions started before the rename keep working, and removes the two adapter files of the old name that are ours (`~/.copilot/hooks/agent-overlay.json`, `~/.config/opencode/plugins/agent-overlay.js`). Reads no credential. | `~/.votive`, `~/.agent-overlay` |
@@ -151,7 +156,8 @@ Codex does not always record them; when it does not, nothing is shown.
   it said. A program running as you could still edit the preference or the file: that is outside
   what this guards (see SECURITY.md).
 - **`Scripts/overlay-settings.js` and `Scripts/doctor.js`** do the same from a terminal.
-- **The installer** runs `xcodegen`, `xcodebuild`, `codesign` (ad-hoc, local), `claude mcp add` if
+- **The installer** runs `xcodegen` and `xcodebuild` (source installs only), `codesign` (ad-hoc, local),
+  `xattr -dr com.apple.quarantine` on the one app it installs (release-zip installs only), `claude mcp add` if
   Claude Code is installed, and `launchctl` to start the app at login.
 
 Nothing needs administrator rights and nothing runs as root.

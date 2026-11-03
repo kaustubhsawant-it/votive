@@ -22,9 +22,14 @@ caveat: the MCP server's npm dependency tree ships HTTP server libraries (expres
 stdio server never loads; they sit on disk but no code path reaches them. Nothing listens on a
 port, and nothing runs as root or asks for an administrator password. The app has no entitlements.
 
-**Built on your Mac.** There are no prebuilt binaries to trust. `install.sh` compiles the app
-from this source and signs it ad-hoc for your Mac only. It isn't notarized, because it never
-leaves your Mac.
+**Two ways to install, and what you trust in each.** *From source:* `install.sh` compiles the app on
+your Mac and signs it ad-hoc for your Mac only, so there is no binary to trust. *From a release zip:* you trust
+a universal app that the maintainer built from the same tagged source, ad-hoc signed and **not notarized** (no
+Apple Developer ID). Check the zip against `SHA256SUMS.txt` on the release page, or build from source if you
+would rather not trust a binary; the zip is not byte-for-byte reproducible. Because macOS refuses an app it
+cannot check with Apple, the installer clears the "downloaded from the internet" flag on the one copy it installs
+(`xattr -dr com.apple.quarantine`, the step Homebrew casks take). It is a single line in `Scripts/install.sh`
+and `tests/release.test.js` pins it to that one app.
 
 **Hooks can't disturb your agent.** The event hook runs inside other programs, so it:
 - always exits with status 0, whatever happens

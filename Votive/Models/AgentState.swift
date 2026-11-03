@@ -14,7 +14,13 @@ enum AgentState: String, Equatable, CaseIterable {
     case stuck        // 🟤 busy but no activity for the configured threshold
     case stopped      // 🔴 process gone / crashed (fatal)
 
-    var color: NSColor {
+    /// Set at launch by `StateColors`: the owner's own colour for a state, if they chose one.
+    static var userColor: (AgentState) -> NSColor? = { _ in nil }
+
+    /// The colour the dot is drawn in: the owner's choice if there is one, else the system colour.
+    var color: NSColor { Self.userColor(self) ?? defaultColor }
+
+    var defaultColor: NSColor {
         switch self {
         case .starting:   return .systemBlue
         case .working:    return .systemYellow

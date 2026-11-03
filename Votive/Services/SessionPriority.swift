@@ -11,6 +11,7 @@ enum SessionPriority {
     static let pinsKey = "prioritySessions"
     static let foldersKey = "priorityFolders"
     static let onlyKey = "alertsOnlyPriority"
+    static let orderKey = "sessionOrder"
     /// A pin for a session that is no longer running is dropped after this long (a resumed session keeps its pin).
     static let keepSeconds: Double = 14 * 24 * 3600
     static let maxPins = 50
@@ -35,7 +36,17 @@ enum SessionPriority {
     }
 
     /// High-priority sessions first, in the order they became so; everyone else after them in the order given.
-    static func order(_ sessions: [AgentSession], pins: [String: Double], folders: [String: Double] = [:]) -> [AgentSession] {
+    /// `positions` is the order the user set by hand ("Move earlier / later"): inside each of those two groups,
+    /// sessions with a place in it come first, in that order, then the rest as before. It never moves a session
+    /// from one group to the other, so it cannot change anyone's priority.
+    static func order(_ sessions: [AgentSession], pins: [String: Double], folders: [String: Double] = [:],
+                      positions: [String] = []) -> [AgentSession] {
+        let place = Dictionary(positions.enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
+        func byPlace(_ group: [AgentSession]) -> [AgentSession] {
+            guard !place.isEmpty else { return group }
+            let placed = group.filter { place[$0.id] != nil }.sorted { place[$0.id]! < place[$1.id]! }
+            return placed + group.filter { place[$0.id] == nil }
+        }
         let pinned = sessions.filter { isHighPriority($0, pins: pins, folders: folders) }.sorted { a, b in
             let ta = pinTime(for: a, pins: pins, folders: folders) ?? 0
             let tb = pinTime(for: b, pins: pins, folders: folders) ?? 0
@@ -44,7 +55,42 @@ enum SessionPriority {
             return a.id < b.id
         }
         let rest = sessions.filter { !isHighPriority($0, pins: pins, folders: folders) }
-        return pinned + rest
+        return byPlace(pinned) + byPlace(rest)
+    }
+
+    /// The hand-set order after moving one session `delta` places (-1 earlier, +1 later) inside its priority group,
+    /// or nil when it cannot move (already at that end of its group, or not shown). `displayed` is the list as shown now.
+    /// The result lists every shown session, so one move fixes the whole order, followed by older entries still stored.
+    static func moved(_ id: String, by delta: Int, displayed: [AgentSession], pins: [String: Double],
+                      folders: [String: Double] = [:], stored: [String] = []) -> [String]? {
+        guard let i = displayed.firstIndex(where: { $0.id == id }), delta != 0 else { return nil }
+        let j = i + (delta < 0 ? -1 : 1)
+        guard displayed.indices.contains(j),
+              isHighPriority(displayed[i], pins: pins, folders: folders) == isHighPriority(displayed[j], pins: pins, folders: folders)
+        else { return nil }
+        var ids = displayed.map { $0.id }
+        ids.swapAt(i, j)
+        return cleanOrder(ids + stored.filter { !ids.contains($0) })
+    }
+
+    /// Whether `id` has a neighbour to swap with in that direction, inside its own priority group.
+    static func canMove(_ id: String, by delta: Int, displayed: [AgentSession], pins: [String: Double], folders: [String: Double] = [:]) -> Bool {
+        moved(id, by: delta, displayed: displayed, pins: pins, folders: folders) != nil
+    }
+
+    static let maxPositions = 100
+
+    /// A stored order, validated: short non-empty text keys, no repeats, at most `maxPositions` (the first ones).
+    static func cleanOrder(_ raw: Any?) -> [String] {
+        guard let list = raw as? [Any] else { return [] }
+        var seen = Set<String>()
+        var out: [String] = []
+        for item in list {
+            guard let k = item as? String, !k.isEmpty, k.count <= 300, seen.insert(k).inserted else { continue }
+            out.append(k)
+            if out.count == maxPositions { break }
+        }
+        return out
     }
 
     static func pinnedCount(_ sessions: [AgentSession], pins: [String: Double], folders: [String: Double] = [:]) -> Int {
@@ -80,12 +126,24 @@ enum SessionPriority {
 
 /// Reads and writes the pins and folder rules in preferences. The only writer.
 struct PriorityStore {
+    /// Posted by the settings window after it changes a folder rule or the hand-set order, so the dots redraw.
+    static let didChange = Notification.Name("VotivePriorityDidChange")
+
     let defaults: UserDefaults
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
     var pins: [String: Double] { SessionPriority.clean(defaults.object(forKey: SessionPriority.pinsKey)) }
     var folders: [String: Double] { SessionPriority.cleanFolders(defaults.object(forKey: SessionPriority.foldersKey)) }
     var onlyPriorityAlerts: Bool { defaults.bool(forKey: SessionPriority.onlyKey) }
+    /// The order the user set by hand with "Move earlier / later" (session keys, first = leftmost).
+    var positions: [String] { SessionPriority.cleanOrder(defaults.object(forKey: SessionPriority.orderKey)) }
+
+    /// Saves the hand-set order. An empty list forgets it.
+    func setPositions(_ list: [String]) {
+        let cleaned = SessionPriority.cleanOrder(list)
+        if cleaned.isEmpty { defaults.removeObject(forKey: SessionPriority.orderKey) }
+        else { defaults.set(cleaned, forKey: SessionPriority.orderKey) }
+    }
 
     /// Pinned itself, or in a marked folder.
     func isHighPriority(_ s: AgentSession) -> Bool { SessionPriority.isHighPriority(s, pins: pins, folders: folders) }

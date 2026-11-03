@@ -1,4 +1,27 @@
-# Votive
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.png">
+    <img src="docs/images/hero-light.png" alt="Votive: one colored dot in your Mac's menu bar for each AI coding agent session" width="860">
+  </picture>
+</p>
+
+<p align="center">
+  <a href="https://github.com/kaustubhsawant-it/votive/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/kaustubhsawant-it/votive?color=7B5CFF&amp;label=release"></a>
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-2EA043"></a>
+  <img alt="macOS 14 or newer" src="https://img.shields.io/badge/macOS-14%2B-171A26">
+  <img alt="Apple Silicon and Intel" src="https://img.shields.io/badge/Apple%20Silicon%20%2B%20Intel-universal-171A26">
+  <img alt="Your data stays on your Mac" src="https://img.shields.io/badge/data-stays%20on%20your%20Mac-34C759">
+</p>
+
+<p align="center">
+  <a href="#install"><b>Install</b></a> &nbsp;|&nbsp;
+  <a href="docs/Votive-Quick-Guide.pdf">Quick guide (PDF)</a> &nbsp;|&nbsp;
+  <a href="#what-the-dots-mean">What the dots mean</a> &nbsp;|&nbsp;
+  <a href="PRIVACY.md">Privacy</a> &nbsp;|&nbsp;
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+## What it does
 
 A small macOS menu-bar app that shows one colored dot for each running AI coding-agent
 session: **Claude Code, Codex, Gemini CLI, Cursor, Copilot CLI, Qwen Code, Windsurf, OpenCode**,
@@ -11,18 +34,22 @@ the dots to the limit's name ("Weekly") to its number ("74%") and back.
 Pure AppKit, no third-party Swift dependencies, about 15–25 MB of memory when idle. Everything
 stays on your Mac.
 
-```
-Menu bar:  🟡 🟢 🟣                     one dot per session, in the order they opened
-Dropdown:  CLAUDE CODE USAGE · UPDATED JUST NOW
-           Session  [███░░░░░░░]  29%  resets 10:30 AM      native level bar: green → amber → red
-           Weekly   [█░░░░░░░░░]   8%  resets Tue 5:30 AM
-           SESSIONS
-           ● api-refactor   Claude Code · working  "add retries to the upload client"   ›
-           ● docs-site      Codex · done           "fix the broken links in the sidebar" ›
-           Caffeinate   Prompt snippets ›   Settings ›   Open ~/.votive   About   Quit
+<p align="center"><img src="docs/images/menu-bar.png" alt="The Mac menu bar with three Votive dots: yellow working, green done, purple needs you" width="860"></p>
+<p align="center"><img src="docs/images/menu.png" alt="The Votive menu: plan usage, one row per session, Caffeinate, prompt snippets, ports and settings" width="860"></p>
+<p align="center"><sub>Illustrations with made-up sessions.</sub></p>
+
+### Get it in two minutes
+
+```sh
+# 1. Install Node.js if you don't have it:  brew install node
+# 2. Download Votive-<version>-mac.zip from the latest release, unzip it, then:
+cd ~/Downloads/Votive-<version>
+./Scripts/install.sh
 ```
 
-> **Local only.** Built from source on your Mac; sends no data anywhere. See
+No Xcode needed. Details, the checksum and the build-from-source option are under [Install](#install).
+
+> **Local only.** Installed from a download or built from source on your Mac; sends no data anywhere. See
 > [PRIVACY.md](PRIVACY.md) for how to check that yourself.
 >
 > Votive is an independent community project. It is not made by, affiliated with or
@@ -33,18 +60,32 @@ Dropdown:  CLAUDE CODE USAGE · UPDATED JUST NOW
 ## Requirements
 
 - macOS 14 (Sonoma) or later, Apple Silicon or Intel
-- Xcode or the Xcode Command Line Tools
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen): `brew install xcodegen`
 - Node.js on your `PATH` (the hooks and the MCP server run under `node`)
 - At least one supported agent (see [docs/AGENTS.md](docs/AGENTS.md))
+- Only to build from source: Xcode or the Xcode Command Line Tools, and
+  [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
 
 > **Platform status.** macOS is the supported platform. The `windows/` folder is an early prototype that has
 > not been built or tested on a real PC yet; don't rely on it.
 
 ## Install
 
+**Option A: download (no Xcode needed).** Get `Votive-<version>-mac.zip` from the
+[latest release](https://github.com/kaustubhsawant-it/votive/releases/latest), unzip it, then in Terminal:
+
 ```sh
-git clone <this repo> votive
+cd ~/Downloads/Votive-<version>
+./Scripts/install.sh
+```
+
+Run the installer; **don't double-click `Votive.app`**. The app is ad-hoc signed and not notarized by Apple
+(there is no Apple Developer ID), so macOS refuses to open it from a double-click. The installer opens it the right
+way. To check the download, run `shasum -a 256 -c SHA256SUMS.txt` next to the zip (both are on the release page).
+
+**Option B: build from source.**
+
+```sh
+git clone https://github.com/kaustubhsawant-it/votive.git votive
 cd votive
 ./Scripts/install.sh
 ```
@@ -63,9 +104,10 @@ Everything it touches, so nothing is a surprise:
 
 | Location | Change |
 |---|---|
-| `~/Applications/Votive.app` | The app (built from source, ad-hoc signed). Native AppKit: menu section headers and SF Symbols, `NSLevelIndicator` usage bars, and Liquid Glass alert panels on macOS 26 (a blur on macOS 14–15) |
+| `~/Applications/Votive.app` | The app (built from source or taken from the release zip; ad-hoc signed either way). Native AppKit: menu section headers and SF Symbols, `NSLevelIndicator` usage bars, and Liquid Glass alert panels on macOS 26 (a blur on macOS 14–15) |
 | `~/Library/LaunchAgents/dev.votive.Votive.plist` | Starts the app at login and restarts it if it crashes |
 | `~/.votive/bin/` | The event hook, status-line wrapper and notify scripts |
+| `~/.votive/release/` | Release-zip installs only: a copy of the MCP server and its helper scripts, so deleting the download folder breaks nothing |
 | `~/.votive/events/`, `usage/` | Small state files the app reads |
 | Each detected agent's hook config (table in [docs/AGENTS.md](docs/AGENTS.md)) | Backed up to `<file>.bak-<timestamp>` first. Then our hook entries are added; your existing hooks are left alone |
 | `~/.claude/settings.json` `statusLine` (Claude Code only) | Wrapped to record plan usage and to show the task-status segment in front of your status line, which is otherwise unchanged (`--no-task` hides the segment) |
@@ -150,7 +192,8 @@ behaves differently.
 - **Sounds.** A different sound for a notify, a session needing you, an error, stuck,
   stopped or done, for every agent, set under **Settings → Sounds** (macOS sounds or your
   own files in `~/.votive/sounds/`). Out of the box only the notify chimes.
-- **High priority sessions.** Hover a session in the menu and choose **High priority**. It moves to the front of the list and the menu-bar dots follow, and its dot is never squeezed out when you have more than six sessions. Turn on **Settings › Alerts › Only alert for high-priority sessions** to get banners, pop-ups and state-change sounds only from those sessions (a message you asked a session to send always shows). A pin lasts as long as the session and survives restarting Votive. To avoid pinning every new session, choose **High priority for every session in this folder**: any session you start in that exact folder is high priority from the start (stop it under **Settings › Alerts › High priority folders**).
+- **The Votive window.** Choose **Open Votive…** (⌘D in the menu) for the detailed view: **Overview** (the weekly forecast in one panel, every plan limit as a bar, your sessions), **Forecast** (where the weekly limit is expected to stand at the reset, with a range and your target), **Habits** (when you use your plan and how far to trust what Votive has learned), **History** (the readings over 24 hours to 30 days), and every setting from the menu under **General**, **Alerts**, **Sounds** and **Agents & tools**. The **Insights** card at the bottom of the sidebar says in a few plain lines what is worth knowing right now. It runs on macOS 14 and later and uses the new glass look on macOS 26. Everything is worked out on this Mac from the usage history file; nothing is sent anywhere.
+- **High priority sessions.** Hover a session in the menu and choose **High priority**. It moves to the front of the list and the menu-bar dots follow, and its dot is never squeezed out when you have more than six sessions. Turn on **Settings › Alerts › Only alert for high-priority sessions** to get banners, pop-ups and state-change sounds only from those sessions (a message you asked a session to send always shows). A pin lasts as long as the session and survives restarting Votive. To change where a dot sits without changing priority, choose **Move earlier** or **Move later**: a dot only moves among the sessions of its own kind, so a pinned dot stays ahead of the unpinned ones. To avoid pinning every new session, choose **High priority: every session in this folder, now and later**: any session you start in that exact folder is high priority from the start (stop it under **Settings › Alerts › High priority folders**).
 - **Stuck detection** with a threshold you can change (Off / 5 / 8 / 15 minutes).
 - **Prompt snippets.** Reusable prompts you can copy with one click, stored in
   `~/.votive/snippets.json`.

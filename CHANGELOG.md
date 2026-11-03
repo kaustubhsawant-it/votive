@@ -3,7 +3,55 @@
 All notable changes to Votive (called Agent Overlay until 2026-10-26) are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [1.8.0] — 2026-11-02
+
+This release also carries everything in 1.7.1 below, which was never published on its own (the downloadable zip and the new README front page).
+
+### Added
+- **The Votive window** (menu bar: **Open Votive…**, or **All Settings…**). A native SwiftUI window with a sidebar:
+  Overview, Forecast, Habits and History for your plan usage, and General, Alerts, Sounds and Agents & tools for every
+  setting the menu has (the same preferences, so a change shows in the menu bar at once and the other way round).
+  The menu-bar item stays the always-on part; the window is the detailed part. It uses Liquid Glass on macOS 26 and
+  system materials on macOS 14 and 15 (the app still runs on macOS 14), the system font and SF Symbols only, and while
+  it is open Votive appears in the Dock like any Mac app and goes back to menu-bar only when you close it.
+- **Insights card** at the foot of the window's sidebar: a few ranked, plain-language things worth knowing (sessions
+  that need you, a limit close to full, the forecast, settings agents changed), one card at a time, critical first,
+  "all clear" only when nothing is urgent, at most six, each with one action that opens the right page. It turns every
+  6 s (15 s while the pointer is over it), not at all with Reduce Motion, and can be switched off under General.
+- **Usage habits** (`node ~/.votive/bin/usage-habits.js`). Learns from your own usage history when you use your plan
+  (weekday or weekend, hour of day), forecasts the weekly limit at the reset with a range, and says what that means in
+  plain sentences. A small statistical model, not a neural network: the history is a few points an hour, so it would
+  only memorise it. It tests itself on days it has not seen and says when it is no better than an average day. Reads
+  the history file only; writes nothing, opens nothing, never acts.
+- **Reorder the dots.** Hover a session and choose **Move earlier** or **Move later** to change where its dot sits in
+  the menu bar (and its row in the menu). A move stays inside the session's own group, so it never pins, unpins or
+  changes priority: pinned sessions keep their place at the front. The order is kept in preferences.
+
+### Fixed
+- **Usage habits** counted hours from UTC, not from your wall clock, so in a half-hour zone such as India (UTC+5:30) every
+  hour was 30 minutes off; hours now start on the local hour. A day's start was also taken from the first hour found
+  rather than the earliest, which made the model's self-test score the wrong 24 hours after a long gap; both fixed and tested.
+
+### Changed
+- The two priority items are named for what they do: **High priority: this session**, and **High priority: every
+  session in this folder, now and later** (a standing rule). A session that is high priority only because of its
+  folder shows a dash in the first item instead of an empty box.
+
+## [1.7.1] — 2026-11-01
+
+### Added
+- **Downloadable release.** Each release now carries `Votive-<version>-mac.zip` (a universal app for Apple Silicon
+  and Intel, the scripts, and an installer) and `SHA256SUMS.txt`, so Votive installs without Xcode or XcodeGen:
+  unzip it and run `./Scripts/install.sh` (Node.js is the only requirement). The app is ad-hoc signed and not
+  notarized, so use the installer, not a double-click. Built by `Scripts/make-release.sh`.
+- `Scripts/install.sh` has a download mode: when it sits next to `Votive.app` it builds nothing, clears the
+  "downloaded" flag on the one app it installs, and keeps the MCP server and its scripts in `~/.votive/release/`.
+
+### Changed
+- README, INSTALLATION, SECURITY and PRIVACY describe both ways to install and what you trust in each.
+- The quick guide's install steps use the download.
+- **The repo's front page.** A light and dark banner, badges, pictures of the menu bar and the menu, and a two-minute
+  install block at the top of the README; issue forms for bug reports and ideas; `CONTRIBUTING.md`.
 
 ## [1.7.0] — 2026-10-31
 

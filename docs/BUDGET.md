@@ -82,3 +82,29 @@ runs with your permissions, so read `mods/votive-budget/hooks/*` (about 300 line
 ## Turning it off
 
 Start Claude Code without `--plugin-dir`. Delete `~/.votive/budget/` to remove its files.
+
+## Usage habits (optional, for you only)
+
+`node ~/.votive/bin/usage-habits.js [--target 80] [--json]` reads the usage history that the pacing advisor
+already keeps (percentages and reset times, nothing else) and tells you, in a few sentences, when you use your
+plan, where the weekly limit is heading, and whether that fits your target.
+
+How it works, so you can check it:
+
+- **Points per hour.** The rise of the weekly percentage between two samples is the use in those hours. A window
+  reset is never counted as use, and an hour with no sample is an hour of no use (the status line only reports
+  while an agent runs).
+- **A small model.** An expected value for every (weekday or weekend, hour of the day), weighted so last week
+  counts more than a month ago (half-life 7 days). A cell seen only a few times leans on the usual shape of that
+  hour of the day, scaled by how busy that kind of day is. So one busy Saturday cannot set your whole weekend.
+- **The forecast** adds the expected points for each hour left until the reset. The range comes from how much
+  whole days differ from each other.
+- **It tests itself.** For each whole day it predicts that day from the others and compares with "an average day".
+  Under 14 days of history it never claims to beat the average; it says the sample is too small.
+
+It is not a neural network, on purpose: with a few hundred hourly numbers, a bigger model would only memorise them.
+It is built so that more history makes it better (the cells fill in, the range narrows), and it can be swapped for
+a heavier model later behind the same report once there are weeks of data.
+
+It only reads the history file. It writes nothing, opens no connection, starts no program and sends nothing, and
+a test fails if it ever gains any of those. It gives advice; it never acts.

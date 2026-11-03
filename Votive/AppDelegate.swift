@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
 
         LegacySettings.migrate()   // settings of the app under its earlier name, before anything reads one
+        StateColors.install()      // the dot colours you chose, before the first dot is drawn
         PausedStore.shared.prune() // programs Votive froze earlier: keep only those still frozen and still the same process
 
         Notifier.shared.setup()   // request notification permission (one-time)

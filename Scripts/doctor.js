@@ -31,7 +31,7 @@ const RUN_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
 const BIN = path.join(P.root, 'bin');
 // Keep in step with the copy loop in install.sh (tests check they match).
 const BIN_FILES = ['votive-event.js', 'agents.js', 'overlay-paths.js', 'progress.js', 'statusline-extras.js',
-  'votive-statusline.js', 'votive-notify.js', 'notify-core.js', 'usage-history.js', 'usage-pacing.js', 'proc-info.js', 'limit-notify.js'];
+  'votive-statusline.js', 'votive-notify.js', 'notify-core.js', 'usage-history.js', 'usage-pacing.js', 'usage-habits.js', 'proc-info.js', 'limit-notify.js'];
 
 const REPAIRS = {
   scripts: 'Copy the hook scripts to ~/.votive/bin again',

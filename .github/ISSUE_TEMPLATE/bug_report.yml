@@ -1,0 +1,54 @@
+name: Bug report
+description: Something in Votive is wrong or behaves differently from the guide
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying Votive. This is a one-person project, so details help a lot. Please do not paste prompts, folder names or anything private: `doctor` output below shows only what is wrong with the install.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect to see instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Start Claude Code in a terminal\n2. ...\n3. ..."
+  - type: input
+    id: version
+    attributes:
+      label: Votive version
+      description: "Menu > About Votive, or the number in the release you downloaded"
+      placeholder: "1.8.0"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac type
+      placeholder: "macOS 15.1, Apple Silicon"
+    validations:
+      required: true
+  - type: input
+    id: agents
+    attributes:
+      label: Which agent(s) were running?
+      placeholder: "Claude Code 2.1, Codex"
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install it?
+      options:
+        - Release download (zip)
+        - Built from source
+        - Not sure
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `node Scripts/doctor.js`
+      description: Run it in the folder you installed from. It lists what is wrong with the install.
+      render: shell

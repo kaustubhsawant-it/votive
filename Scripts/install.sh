@@ -2,24 +2,37 @@
 # Build (Release) → install app to ~/Applications → install scripts to ~/.votive/bin →
 # wire every detected agent (configs backed up first) → Claude Code usage status line →
 # notify MCP server → LaunchAgent, so it runs now and auto-starts at login. Safe to re-run.
+#
+# Two ways to run it. From the source repo it builds the app first (needs Xcode tools and XcodeGen).
+# From a release download (a folder that already contains Votive.app) it installs that app and
+# builds nothing, so only Node.js is needed.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 BIN="$HOME/.votive/bin"
+PREBUILT=0
+[ -d "$ROOT/Votive.app" ] && PREBUILT=1
 
 # Preflight: fail before touching anything if a required tool is missing.
-for tool in xcodegen xcodebuild node npm; do
+TOOLS="node npm"
+[ "$PREBUILT" = 1 ] || TOOLS="xcodegen xcodebuild node npm"
+for tool in $TOOLS; do
   command -v "$tool" >/dev/null || { echo "Missing '$tool' — see Requirements in README.md"; exit 1; }
 done
 
-echo "==> Building Release…"
-xcodegen generate >/dev/null
-xcodebuild -project Votive.xcodeproj -scheme Votive -configuration Release build >/dev/null
+if [ "$PREBUILT" = 1 ]; then
+  APP="$ROOT/Votive.app"
+  echo "==> Using the app from this download (nothing to build)…"
+else
+  echo "==> Building Release…"
+  xcodegen generate >/dev/null
+  xcodebuild -project Votive.xcodeproj -scheme Votive -configuration Release build >/dev/null
 
-DD=$(xcodebuild -project Votive.xcodeproj -scheme Votive -configuration Release \
-      -showBuildSettings 2>/dev/null | awk -F' = ' '/ BUILT_PRODUCTS_DIR /{print $2; exit}')
-APP="$DD/Votive.app"
-[ -d "$APP" ] || { echo "Build failed: '$APP' not found"; exit 1; }
+  DD=$(xcodebuild -project Votive.xcodeproj -scheme Votive -configuration Release \
+        -showBuildSettings 2>/dev/null | awk -F' = ' '/ BUILT_PRODUCTS_DIR /{print $2; exit}')
+  APP="$DD/Votive.app"
+  [ -d "$APP" ] || { echo "Build failed: '$APP' not found"; exit 1; }
+fi
 
 echo "==> Installing app to ~/Applications…"
 mkdir -p "$HOME/Applications"
@@ -27,6 +40,10 @@ DEST="$HOME/Applications/Votive.app"
 rm -rf "$DEST"
 cp -R "$APP" "$DEST"
 codesign --force --deep --sign - "$DEST" 2>/dev/null || true
+# An app that came from the internet carries a "downloaded" flag, and macOS refuses to open an app it
+# cannot check with Apple. The person running this installer has chosen to install it, so the flag is
+# cleared on this one copy (the same step Homebrew casks take). Nothing else is changed.
+if [ "$PREBUILT" = 1 ]; then xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true; fi
 
 echo "==> Moving data from the old Agent Overlay name, if any…"
 node "$ROOT/Scripts/legacy-migrate.js"
@@ -35,7 +52,7 @@ echo "==> Installing scripts to ~/.votive/bin…"
 mkdir -p "$BIN" "$HOME/.votive/events" "$HOME/.votive/usage"
 chmod 700 "$HOME/.votive" "$HOME/.votive/events" "$HOME/.votive/usage"
 for f in votive-event.js agents.js overlay-paths.js progress.js statusline-extras.js votive-statusline.js \
-         votive-notify.js notify-core.js usage-history.js usage-pacing.js proc-info.js limit-notify.js; do
+         votive-notify.js notify-core.js usage-history.js usage-pacing.js usage-habits.js proc-info.js limit-notify.js; do
   cp "$ROOT/Scripts/$f" "$BIN/$f"
 done
 # Hooks of agent sessions started before the rename still call the old script names: keep thin shims.
@@ -63,13 +80,23 @@ if [ -d "$HOME/.claude" ] || command -v claude >/dev/null; then
   node "$ROOT/Scripts/install-statusline.js"
 
   echo "==> Claude Code: notify MCP server and /notify command…"
-  if [ ! -d "$ROOT/mcp-server/node_modules" ]; then
-    (cd "$ROOT/mcp-server" && npm install --omit=dev >/dev/null)
+  MCP="$ROOT/mcp-server"
+  if [ "$PREBUILT" = 1 ]; then
+    # The download folder may be deleted later, so keep the server somewhere stable. It loads helpers from a
+    # sibling Scripts folder (../Scripts), so the two are copied side by side.
+    KEEP="$HOME/.votive/release"
+    mkdir -p "$KEEP/mcp-server" "$KEEP/Scripts"
+    cp -R "$ROOT/Scripts/." "$KEEP/Scripts/"
+    cp "$ROOT/mcp-server/index.js" "$ROOT/mcp-server/package.json" "$ROOT/mcp-server/package-lock.json" "$KEEP/mcp-server/"
+    MCP="$KEEP/mcp-server"
+  fi
+  if [ ! -d "$MCP/node_modules" ]; then
+    (cd "$MCP" && npm install --omit=dev >/dev/null)
   fi
   if command -v claude >/dev/null; then
     claude mcp remove agent-overlay --scope user >/dev/null 2>&1 || true   # the name before Votive
     claude mcp remove votive --scope user >/dev/null 2>&1 || true
-    claude mcp add --scope user votive -- node "$ROOT/mcp-server/index.js" >/dev/null
+    claude mcp add --scope user votive -- node "$MCP/index.js" >/dev/null
   fi
   mkdir -p "$HOME/.claude/commands"
   cp "$ROOT/Scripts/commands/notify.md" "$HOME/.claude/commands/notify.md"

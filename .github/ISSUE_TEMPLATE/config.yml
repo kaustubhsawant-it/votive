@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Read the quick guide first
+    url: https://github.com/kaustubhsawant-it/votive/blob/main/docs/Votive-Quick-Guide.pdf
+    about: Install steps, what each dot means, and the fixes for the common problems are in the 3-page guide.
+  - name: Report a security problem privately
+    url: https://github.com/kaustubhsawant-it/votive/security/advisories/new
+    about: Please do not open a public issue for a security problem.

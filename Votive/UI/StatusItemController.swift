@@ -117,7 +117,19 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
         NotificationCenter.default.addObserver(self, selector: #selector(caffeinateChanged),
                                                name: Caffeinate.didChange, object: nil)
+        // The window can clear folder rules and the hand-set order; redraw the dots when it does.
+        NotificationCenter.default.addObserver(self, selector: #selector(priorityChangedElsewhere),
+                                               name: PriorityStore.didChange, object: nil)
+        // The window can change the dot colours; draw the dots again in the new ones.
+        NotificationCenter.default.addObserver(self, selector: #selector(colorsChanged), name: StateColors.didChange, object: nil)
     }
+
+    @objc private func colorsChanged() {
+        render(force: true)
+        updateAnimation()
+    }
+
+    @objc private func priorityChangedElsewhere() { applyPriorityOrder() }
 
     @objc private func caffeinateChanged() {
         statusItem.button?.toolTip = Caffeinate.shared.isOn ? "AI agents — Caffeinate on" : "AI agents"
@@ -180,8 +192,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         priority.prune(live: Set(incoming.map { $0.id }))
         rawSessions = incoming
         let pins = priority.pins, folders = priority.folders
-        let sessions = SessionPriority.order(incoming, pins: pins, folders: folders)
+        let sessions = SessionPriority.order(incoming, pins: pins, folders: folders, positions: priority.positions)
         pinnedCount = SessionPriority.pinnedCount(sessions, pins: pins, folders: folders)
+        DashboardModel.shared.sessions = sessions
         // Captured before detectTransitions flips it true, so a custom notify already present
         // on the very first post-launch scan is recorded (never re-fires) but not alerted on —
         // same launch-quiet convention the state-transition alerts already follow.
@@ -202,6 +215,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     func updateUsage(_ snapshot: UsageSnapshot?) {
         usage = snapshot
+        DashboardModel.shared.usage = snapshot
         statusItem.button?.toolTip = snapshot.map { "AI agents — " + usageSummary($0) } ?? "AI agents"
         updateUsagePulse()
     }
@@ -446,6 +460,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         addAgentChanges(menu)
 
         menu.addItem(.separator())
+        menu.addItem(actionItem("Open Votive…", symbol: "chart.line.uptrend.xyaxis", #selector(openDashboard), key: "d"))
         menu.addItem(caffeinateMenuItem())
         menu.addItem(snippetsMenuItem())
         if portToolsOn { menu.addItem(portsMenu.menuItem()) }
@@ -490,6 +505,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         root.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)
         let sub = NSMenu()
 
+        sub.addItem(actionItem("All Settings…", symbol: "slider.horizontal.3", #selector(openAllSettings)))
+        sub.addItem(.separator())
         sub.addItem(.sectionHeader(title: "Menu bar"))
         addToggle(sub, title: "Colorblind shapes", on: shapesMode, action: #selector(toggleShapes))
         addToggle(sub, title: "Show limits over 70% in the menu bar", on: usageAlertOn, action: #selector(toggleUsageAlert))
@@ -666,26 +683,41 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     /// Actions menu for one agent, popped on right-click / "⋯" from its row.
     func actionsMenu(for s: AgentSession) -> NSMenu {
         let menu = NSMenu()
+        menu.autoenablesItems = false   // Move earlier / later are greyed by hand when there is nowhere to go
         let ref = SessionRef(pid: s.pid, cwd: s.cwd, id: s.sessionId)
         if s.pid > 0 {
             addItem(menu, "Open terminal window", #selector(focusSession(_:)), ref, bold: true)
             menu.addItem(.separator())
         }
-        let pin = NSMenuItem(title: "High priority", action: #selector(togglePriority(_:)), keyEquivalent: "")
+        let pinnedItself = priority.isPinned(s.id)
+        let viaFolder = !pinnedItself && priority.isHighPriority(s)
+        let pin = NSMenuItem(title: viaFolder ? "High priority (set by its folder)" : "High priority: this session",
+                             action: #selector(togglePriority(_:)), keyEquivalent: "")
         pin.target = self
-        pin.state = priority.isPinned(s.id) ? .on : .off
+        pin.state = pinnedItself ? .on : (viaFolder ? .mixed : .off)
         pin.image = NSImage(systemSymbolName: "pin", accessibilityDescription: nil)
         pin.representedObject = PinRef(key: s.id)
-        pin.toolTip = "Keeps this session first in the menu and the dots. With Settings > Alerts > Only alert for high-priority sessions turned on, it is the only kind that alerts you."
+        pin.toolTip = "Keeps just this session first in the menu and the dots. With Settings > Alerts > Only alert for high-priority sessions turned on, it is the only kind that alerts you."
         menu.addItem(pin)
         if !s.cwd.isEmpty {
-            let folder = NSMenuItem(title: "High priority for every session in this folder", action: #selector(toggleFolderPriority(_:)), keyEquivalent: "")
+            let folder = NSMenuItem(title: "High priority: every session in this folder, now and later", action: #selector(toggleFolderPriority(_:)), keyEquivalent: "")
             folder.target = self
             folder.state = priority.isFolderMarked(s.cwd) ? .on : .off
             folder.image = NSImage(systemSymbolName: "pin.circle", accessibilityDescription: nil)
             folder.representedObject = PinRef(key: s.cwd)
-            folder.toolTip = "Sessions started in \((s.cwd as NSString).abbreviatingWithTildeInPath) become high priority by themselves, so you don't have to pin each new one. Only this exact folder."
+            folder.toolTip = "A standing rule: sessions started in \((s.cwd as NSString).abbreviatingWithTildeInPath) become high priority by themselves, so you don't have to pin each new one. Only this exact folder."
             menu.addItem(folder)
+        }
+        // Order of the dots (and rows) without touching priority: a move stays inside the session's own group.
+        let pins = priority.pins, folders = priority.folders
+        for (title, delta, symbol) in [("Move earlier", -1, "chevron.left"), ("Move later", 1, "chevron.right")] {
+            let move = NSMenuItem(title: title, action: #selector(moveSession(_:)), keyEquivalent: "")
+            move.target = self
+            move.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+            move.representedObject = MoveRef(key: s.id, delta: delta)
+            move.isEnabled = SessionPriority.canMove(s.id, by: delta, displayed: sessions, pins: pins, folders: folders)
+            move.toolTip = "Moves this session's dot one place \(delta < 0 ? "left" : "right") in the menu bar, and its row one place \(delta < 0 ? "up" : "down") here. It stays among \(priority.isHighPriority(s) ? "the high-priority sessions" : "the other sessions"), so its priority does not change."
+            menu.addItem(move)
         }
         menu.addItem(.separator())
         if !s.cwd.isEmpty {
@@ -842,6 +874,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         applyPriorityOrder()
     }
 
+    /// Moves a session's dot one place, inside its priority group, and remembers the whole order.
+    @objc private func moveSession(_ sender: NSMenuItem) {
+        guard let ref = sender.representedObject as? MoveRef,
+              let list = SessionPriority.moved(ref.key, by: ref.delta, displayed: sessions, pins: priority.pins,
+                                               folders: priority.folders, stored: priority.positions) else { return }
+        priority.setPositions(list)
+        applyPriorityOrder()
+    }
+
     @objc private func removePriorityFolder(_ sender: NSMenuItem) {
         guard let ref = sender.representedObject as? PinRef else { return }
         priority.toggleFolder(ref.key)
@@ -850,7 +891,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     private func applyPriorityOrder() {
         let pins = priority.pins, folders = priority.folders
-        sessions = SessionPriority.order(rawSessions, pins: pins, folders: folders)
+        sessions = SessionPriority.order(rawSessions, pins: pins, folders: folders, positions: priority.positions)
         pinnedCount = SessionPriority.pinnedCount(sessions, pins: pins, folders: folders)
         render(force: true)
     }
@@ -956,37 +997,16 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         Sounds.shared.play(named: pair[1])
     }
 
-    /// Copies the chosen file into ~/.votive/sounds/ (so moving or deleting the
-    /// original can't silence it) and uses it for this event.
     @objc private func addSoundFile(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String, let event = SoundEvent(rawValue: raw) else { return }
-        let panel = NSOpenPanel()
-        panel.title = "Choose a sound for “\(event.title)”"
-        panel.allowedContentTypes = [.audio]
-        panel.allowsMultipleSelection = false
-        NSApp.activate(ignoringOtherApps: true)   // an accessory app's panel opens behind otherwise
-        guard panel.runModal() == .OK, let src = panel.url else { return }
-        let fm = FileManager.default
-        let dest = Paths.sounds.appendingPathComponent(src.lastPathComponent)
-        do {
-            try fm.createDirectory(at: Paths.sounds, withIntermediateDirectories: true)
-            if src.standardizedFileURL != dest.standardizedFileURL {
-                if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
-                try fm.copyItem(at: src, to: dest)
-            }
-        } catch {
-            DialogAlerter.shared.show(title: "Couldn't add the sound", body: error.localizedDescription)
-            return
-        }
-        Sounds.shared.clearCache()
-        Sounds.shared.setSound(dest.lastPathComponent, for: event)
-        Sounds.shared.play(named: dest.lastPathComponent)
+        Sounds.shared.chooseFile(for: event)
     }
 
-    @objc private func openSoundsDir() {
-        try? FileManager.default.createDirectory(at: Paths.sounds, withIntermediateDirectories: true)
-        NSWorkspace.shared.open(Paths.sounds)
-    }
+    @objc private func openSoundsDir() { Sounds.shared.openFolder() }
+
+    @objc private func openDashboard() { DashboardWindowController.shared.show() }
+
+    @objc private func openAllSettings() { DashboardWindowController.shared.show(page: .general) }
 
     @objc private func openSessionsDir() { NSWorkspace.shared.open(Paths.root) }
 
@@ -1059,4 +1079,10 @@ private final class SessionRef {
 private final class PinRef {
     let key: String
     init(key: String) { self.key = key }
+}
+
+private final class MoveRef {
+    let key: String
+    let delta: Int
+    init(key: String, delta: Int) { self.key = key; self.delta = delta }
 }

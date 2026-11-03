@@ -75,6 +75,30 @@ test('priority: pinned sessions come first, in pin order; the rest keep their or
     'print("fgarbage", store.folders.count)',
     'UserDefaults.standard.removePersistentDomain(forName: suite)',
     'ud.removePersistentDomain(forName: suite)',
+    // hand-set order: moves stay inside the priority group and never pin or unpin
+    'let five = [s("a", 1), s("b", 2), s("c", 3), s("d", 4), s("e", 5)]',
+    'let pp: [String: Double] = ["d": 10, "e": 20]',
+    'let shown = SessionPriority.order(five, pins: pp)',
+    'print("base", ids(shown))',
+    'let m1 = SessionPriority.moved("c", by: -1, displayed: shown, pins: pp)',
+    'print("moveUp", m1.map { $0.joined(separator: ",") } ?? "nil", ids(SessionPriority.order(five, pins: pp, positions: m1 ?? [])))',
+    'print("edgeTop", SessionPriority.moved("d", by: -1, displayed: shown, pins: pp) == nil, SessionPriority.moved("c", by: -1, displayed: SessionPriority.order(five, pins: pp, positions: m1 ?? []), pins: pp) != nil)',
+    'print("groupWall", SessionPriority.moved("a", by: -1, displayed: shown, pins: pp) == nil, SessionPriority.moved("e", by: 1, displayed: shown, pins: pp) == nil, SessionPriority.canMove("a", by: -1, displayed: shown, pins: pp))',
+    'let m2 = SessionPriority.moved("e", by: -1, displayed: shown, pins: pp)',
+    'print("pinnedSwap", ids(SessionPriority.order(five, pins: pp, positions: m2 ?? [])))',
+    'print("newcomer", ids(SessionPriority.order(five + [s("f", 6)], pins: pp, positions: m1 ?? [])))',
+    'print("unpin", ids(SessionPriority.order(five, pins: [:], positions: m1 ?? [])))',
+    'print("keepStale", SessionPriority.moved("c", by: -1, displayed: shown, pins: pp, stored: ["zzz", "c"])?.last ?? "nil")',
+    'print("missing", SessionPriority.moved("nope", by: 1, displayed: shown, pins: pp) == nil, SessionPriority.moved("c", by: 0, displayed: shown, pins: pp) == nil)',
+    'print("cleanOrder", SessionPriority.cleanOrder(["a", "", "a", 3, "b", String(repeating: "x", count: 301)]), SessionPriority.cleanOrder("no"), SessionPriority.cleanOrder((1...150).map { "k\\($0)" }).count)',
+    'let ostore = PriorityStore(defaults: UserDefaults(suiteName: "dev.votive.test.order.\\(getpid())")!)',
+    'ostore.setPositions(["b", "a"])',
+    'print("ostore", ostore.positions, ostore.pins.count, ostore.folders.count)',
+    'ostore.setPositions([])',
+    'print("oreset", ostore.positions.count)',
+    'ostore.defaults.set("garbage", forKey: SessionPriority.orderKey)',
+    'print("ogarbage", ostore.positions.count)',
+    'ostore.defaults.removePersistentDomain(forName: "dev.votive.test.order.\\(getpid())")',
     // the dot cap
     'func show(_ x: [AgentState], _ p: Int) -> String { AgentState.menuBarSelection(x, max: 6, protectFirst: p).map { $0.rawValue }.joined(separator: ",") }',
     'let seven: [AgentState] = [.done, .done, .working, .working, .working, .working, .needsInput]',
@@ -126,16 +150,33 @@ test('priority: pinned sessions come first, in pin order; the rest keep their or
   assert.equal(out.fhigh, 'true false');
   assert.equal(out.foff, 'false 0');
   assert.equal(out.fgarbage, '0', 'damaged folder rules are ignored');
+  // hand-set order
+  assert.equal(out.base, 'd,e,a,b,c');
+  assert.equal(out.moveUp, 'd,e,a,c,b d,e,a,c,b', 'moving c earlier swaps it with b, inside the unpinned group');
+  assert.equal(out.edgeTop, 'true true', 'the first of its group cannot move earlier; a moved session can move again');
+  assert.equal(out.groupWall, 'true true false', 'a move never crosses from unpinned to pinned or back, so priority is untouched');
+  assert.equal(out.pinnedSwap, 'e,d,a,b,c', 'pinned sessions can be reordered among themselves');
+  assert.equal(out.newcomer, 'd,e,a,c,b,f', 'a new session joins the end of its group');
+  assert.equal(out.unpin, 'd,e,a,c,b', 'the hand-set order survives a change of pins');
+  assert.equal(out.keepStale, 'zzz', 'older entries stay after the shown ones');
+  assert.equal(out.missing, 'true true');
+  assert.equal(out.cleanOrder, '["a", "b"] [] 100', 'bad entries are dropped, repeats removed, capped at 100');
+  assert.equal(out.ostore, '["b", "a"] 0 0', 'the order is stored on its own, apart from pins and folders');
+  assert.equal(out.oreset, '0');
+  assert.equal(out.ogarbage, '0', 'a damaged preference is ignored');
 });
 
 test('priority: the wiring: sort once for menu and dots, filter automatic alerts only, never reachable by an agent', () => {
   const ctl = read('Votive/UI/StatusItemController.swift');
   const row = read('Votive/UI/AgentRowView.swift');
   // one ordered list feeds both the rows and the dots
-  assert.match(ctl, /let sessions = SessionPriority\.order\(incoming, pins: pins, folders: folders\)/);
+  assert.match(ctl, /let sessions = SessionPriority\.order\(incoming, pins: pins, folders: folders, positions: priority\.positions\)/);
   assert.match(ctl, /protectFirst: pinnedCount/);
-  assert.match(ctl, /sessions = SessionPriority\.order\(rawSessions, pins: pins, folders: folders\)/, 'unpinning restores the original order');
-  assert.match(ctl, /High priority for every session in this folder/);
+  assert.match(ctl, /sessions = SessionPriority\.order\(rawSessions, pins: pins, folders: folders, positions: priority\.positions\)/, 'unpinning restores the original order');
+  assert.match(ctl, /High priority: every session in this folder, now and later/);
+  assert.match(ctl, /menu\.autoenablesItems = false/, 'a greyed Move item stays greyed');
+  assert.match(ctl, /Move earlier/);
+  assert.match(ctl, /Move later/);
   // the filter is on automatic alerts and sounds, not on a message a person asked a session to send
   assert.match(ctl, /guard SessionPriority\.shouldAlert\(s, onlyPriority: onlyPriority, pins: pins, folders: folders\) else \{ continue \}/);
   const notify = /private func detectPendingNotifies[\s\S]*?\n    \}/.exec(ctl)[0];
@@ -143,10 +184,10 @@ test('priority: the wiring: sort once for menu and dots, filter automatic alerts
   // off by default, and a plain bool
   assert.match(ctl, /get \{ defaults\.bool\(forKey: SessionPriority\.onlyKey\) \}/);
   assert.match(ctl, /Only alert for high-priority sessions/);
-  assert.match(ctl, /title: "High priority"/);
+  assert.match(ctl, /High priority: this session/);
   assert.match(row, /pinned: Bool = false/);
   // agents cannot set it
   for (const f of ['mcp-server/index.js', 'Scripts/overlay-settings.js', 'Scripts/mcp-guard.js']) {
-    assert.ok(!/prioritySessions|priorityFolders|alertsOnlyPriority|SessionPriority/.test(read(f)), f + ' must not expose session priority');
+    assert.ok(!/prioritySessions|priorityFolders|alertsOnlyPriority|sessionOrder|SessionPriority/.test(read(f)), f + ' must not expose session priority');
   }
 });

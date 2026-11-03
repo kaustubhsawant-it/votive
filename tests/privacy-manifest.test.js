@@ -102,7 +102,7 @@ test('privacy: the Swift app has exactly the write calls PRIVACY.md describes', 
   const dir = path.join(ROOT, 'Votive');
   const files = [];
   (function walk(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) walk(f); else if (f.endsWith('.swift')) files.push(f); } })(dir);
-  const sinks = /\.write\(to:|\.createDirectory\(|\.copyItem\(|\.moveItem\(|\.removeItem\(|\.createFile\(|FileHandle\(forWriting|\.replaceItem|\.trashItem\(|\.setAttributes\(|\bsymbolicLink|\.set\(\w+, forKey:/g;
+  const sinks = /\.write\(to:|\.createDirectory\(|\.copyItem\(|\.moveItem\(|\.removeItem\(|\.createFile\(|FileHandle\(forWriting|\.replaceItem|\.trashItem\(|\.setAttributes\(|\bsymbolicLink|\.set\(\w+, forKey:|@AppStorage\(/g;
   const found = {};
   for (const f of files) {
     const n = (fs.readFileSync(f, 'utf8').replace(/\/\/.*$/gm, '').match(sinks) || []).length;
@@ -110,17 +110,22 @@ test('privacy: the Swift app has exactly the write calls PRIVACY.md describes', 
   }
   // File: number of write calls. Every entry is explained in PRIVACY.md ("What the app writes").
   assert.deepEqual(found, {
+    'Dashboard/DashboardView.swift': 2,      // the page the Votive window was last on, and whether it shows the insights card, in macOS preferences
+    'Dashboard/ForecastPage.swift': 1,       // the weekly target (a number), in macOS preferences
+    'Dashboard/SettingsPages.swift': 12,     // the menu's own settings, edited from the Votive window (the same preferences) plus the insights card switch
     'Services/AgentChanges.swift': 3,        // Undo in the Agent changes menu: puts one known preference back
     'Services/LegacySettings.swift': 2,      // one-time copy of the settings of the earlier app name (Agent Overlay)
     'Services/OverlayStore.swift': 2,        // deletes its own stale event files
     'Services/PausedStore.swift': 2,         // ~/.votive and paused.json (programs the optional Ports tool froze)
     'Services/PortTools.swift': 2,           // ~/.votive and ports.json (optional Ports tool)
-    'Services/SessionPriority.swift': 3,     // pins and folder rules (which sessions are High priority) in macOS preferences
+    'Services/SessionPriority.swift': 4,     // pins, folder rules (which sessions are High priority) and the hand-set dot order in macOS preferences
     'Services/SnippetStore.swift': 2,        // ~/.votive and snippets.json
+    'Services/StateColors.swift': 1,         // the dot colors you chose, in macOS preferences
+    'Services/SoundImport.swift': 4,         // Add Sound File: copies the chosen file into ~/.votive/sounds (menu and window share it)
     'Services/Sounds.swift': 2,              // sound choices in macOS preferences
     'Services/StatusCoordinator.swift': 1,   // ~/.votive/events
     'Services/UsageStore.swift': 1,          // ~/.votive/usage
-    'UI/StatusItemController.swift': 13,     // preferences (including the Let agents change settings switch and the Ports switch), ~/.votive/sounds
+    'UI/StatusItemController.swift': 9,      // preferences (including the Let agents change settings switch and the Ports switch)
   });
 });
 
