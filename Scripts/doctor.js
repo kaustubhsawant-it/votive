@@ -25,6 +25,15 @@ const APP = path.join(HOME, 'Applications', 'Votive.app');
 const LABEL = 'dev.votive.Votive';
 const PLIST = path.join(HOME, 'Library', 'LaunchAgents', LABEL + '.plist');
 const WIN = process.platform === 'win32';
+const LINUX = process.platform === 'linux';
+// Linux: the tray program lives in the user's data folder and runs as a systemd user service (no root needed).
+const linuxPaths = (env = process.env) => {
+  const data = env.XDG_DATA_HOME || path.join(HOME, '.local', 'share');
+  const config = env.XDG_CONFIG_HOME || path.join(HOME, '.config');
+  return { appDir: path.join(data, 'votive'), tray: path.join(data, 'votive', 'linux', 'votive-tray.js'), unitDir: path.join(config, 'systemd', 'user'), unit: path.join(config, 'systemd', 'user', 'votive.service') };
+};
+const UNIT = 'votive.service';
+const systemctl = (...args) => run('systemctl', ['--user', ...args]);
 // Windows: the per-user app folder the installer uses (no admin needed).
 const windowsAppPath = (env = process.env) => path.join(env.LOCALAPPDATA || path.join(HOME, 'AppData', 'Local'), 'Votive', 'VotiveWin.exe');
 const RUN_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
@@ -37,7 +46,7 @@ const REPAIRS = {
   scripts: 'Copy the hook scripts to ~/.votive/bin again',
   hooks: 'Re-wire the hooks of every detected agent',
   statusline: 'Re-wrap the Claude Code status line so plan usage is recorded',
-  app: 'Restart the menu-bar app',
+  app: 'Restart the menu-bar app (on Linux: the tray service)',
 };
 
 function run(cmd, args) {
@@ -121,6 +130,18 @@ function diagnose() {
     add('app-running', up, up ? 'Running' : 'The app is not running.', fs.existsSync(exe) ? 'app' : undefined);
     const login = run('reg', ['query', RUN_KEY, '/v', 'Votive']);
     add('login-item', login.ok, login.ok ? 'Starts with Windows' : 'Not set to start with Windows (tray menu: Start with Windows).');
+  } else if (LINUX) {
+    const lp = linuxPaths();
+    add('app-installed', fs.existsSync(lp.tray), fs.existsSync(lp.tray) ? lp.tray : 'Not found at ' + lp.tray + '. Run: node Scripts/install-linux.js');
+    const active = systemctl('is-active', UNIT);
+    const up = active.ok && /^active/.test(active.out.trim());
+    add('app-running', up, up ? 'The ' + UNIT + ' service is running' : 'The tray service is not running (systemctl --user status ' + UNIT + ').', fs.existsSync(lp.tray) ? 'app' : undefined);
+    const enabled = systemctl('is-enabled', UNIT);
+    add('login-item', enabled.ok, enabled.ok ? 'Starts at login (' + UNIT + ')' : 'The service is not enabled, so the tray will not start at login. Run: node Scripts/install-linux.js');
+    // The tray needs a program that shows tray icons. GNOME ships none by default; say so rather than leave a silent tray.
+    const host = run('busctl', ['--user', 'status', 'org.kde.StatusNotifierWatcher']);
+    if (host.ok) checks.push({ id: 'tray-host', ok: true, detail: 'A tray host is running (org.kde.StatusNotifierWatcher)' });
+    else warn('tray-host', 'No tray host found on the session bus. GNOME needs the AppIndicator extension (Ubuntu has it on); KDE, XFCE, Cinnamon and MATE show tray icons themselves.');
   } else {
     add('app-installed', fs.existsSync(APP),
       fs.existsSync(APP) ? APP : 'Not found at ' + APP + '. Run ./Scripts/install.sh to build and install it.');
@@ -248,6 +269,11 @@ function repair(which) {
         } catch (e) { results.push({ repair: r, ok: false, output: 'Could not start: ' + e.message }); }
         continue;
       }
+      if (LINUX) {
+        const k = systemctl('restart', UNIT);
+        results.push({ repair: r, ok: k.ok, output: k.ok ? 'Restarted ' + UNIT : 'Could not restart: ' + k.out.trim() });
+        continue;
+      }
       const uid = String(process.getuid());
       let k = run('/bin/launchctl', ['kickstart', '-k', 'gui/' + uid + '/' + LABEL]);
       if (!k.ok && fs.existsSync(PLIST)) {
@@ -283,4 +309,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { diagnose, repair, REPAIRS, BIN_FILES, windowsAppPath };
+module.exports = { diagnose, repair, REPAIRS, BIN_FILES, windowsAppPath, linuxPaths, UNIT };

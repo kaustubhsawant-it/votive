@@ -72,9 +72,11 @@ function fullyCovered(h, use) { return use.first !== null && h >= startOfHour(us
 
 /**
  * Fits the model. `until` (ms) ignores anything after it and `skipDay` leaves one local day out, which is how the
- * backtest keeps its test honest.
+ * backtest keeps its test honest. `halfLifeDays` and `shrink` default to the constants above; usage-tune.js tries others.
  */
 function fit(samples, opts = {}) {
+  const halfLife = opts.halfLifeDays === undefined ? HALF_LIFE_DAYS : opts.halfLifeDays;
+  const shrink = opts.shrink === undefined ? SHRINK : opts.shrink;
   const use = hourlyUse(samples);
   const now = opts.now === undefined ? (use.last === null ? 0 : use.last) : opts.now;
   const wsum = { we: new Array(24).fill(0), wd: new Array(24).fill(0), any: new Array(24).fill(0) };
@@ -85,7 +87,7 @@ function fit(samples, opts = {}) {
     if (!fullyCovered(h, use)) continue;
     const key = dayKey(h);
     if (opts.skipDay !== undefined && key === opts.skipDay) continue;
-    const w = Math.pow(0.5, Math.max(0, now - h) / DAY / HALF_LIFE_DAYS);
+    const w = Math.pow(0.5, Math.max(0, now - h) / DAY / halfLife);
     const t = isWeekend(h) ? 'we' : 'wd', hr = hourOf(h);
     wsum[t][hr] += w; sum[t][hr] += w * pts; count[t][hr] += 1;
     wsum.any[hr] += w; sum.any[hr] += w * pts;
@@ -106,11 +108,11 @@ function fit(samples, opts = {}) {
     // How many different days of this kind fed the cells; one busy Saturday is not yet a weekend habit.
     const nDays = new Set([...days.values()].filter((d) => d.weekend === (t === 'we')).map((d) => dayKey(d.start))).size;
     const raw = anyDaily > 0 && seenHours === 24 ? daily / anyDaily : 1;
-    model.scale[t] = (nDays * raw + SHRINK) / (nDays + SHRINK);
+    model.scale[t] = (nDays * raw + shrink) / (nDays + shrink);
     for (let hr = 0; hr < 24; hr++) {
       const prior = anyMean[hr] * model.scale[t];
       const c = cellMean(t, hr), n = count[t][hr];
-      model[t][hr] = c === null ? prior : (n * c + SHRINK * prior) / (n + SHRINK);
+      model[t][hr] = c === null ? prior : (n * c + shrink * prior) / (n + shrink);
     }
   }
   // Whole days seen end to end (24 hours) are the unit for the spread and the backtest.
@@ -141,12 +143,12 @@ const sd = (a) => { if (a.length < 2) return 0; const m = mean(a); return Math.s
  * Leave-one-day-out: for each whole day, fit without it and predict its total. The comparison is "an average
  * day" (the mean of the other days), the simplest thing a model has to beat.
  */
-function backtest(samples) {
-  const full = fit(samples);
+function backtest(samples, opts = {}) {
+  const full = fit(samples, opts);
   if (full.days.length < MIN_DAYS_BACKTEST) return { days: full.days.length, enough: false };
   let errModel = 0, errBase = 0;
   for (const d of full.days) {
-    const m = fit(samples, { skipDay: d.key });
+    const m = fit(samples, Object.assign({}, opts, { skipDay: d.key }));
     let predicted = 0;
     for (let k = 0; k < 24; k++) predicted += expectedHour(m, d.start + k * HOUR);
     const others = full.days.filter((x) => x.key !== d.key).map((x) => x.total);

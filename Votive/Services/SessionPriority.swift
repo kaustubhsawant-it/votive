@@ -70,7 +70,24 @@ enum SessionPriority {
         else { return nil }
         var ids = displayed.map { $0.id }
         ids.swapAt(i, j)
-        return cleanOrder(ids + stored.filter { !ids.contains($0) })
+        return placed(ids, stored: stored)
+    }
+
+    /// A full order to store: `ids` as shown, followed by older entries still stored for sessions not shown now.
+    static func placed(_ ids: [String], stored: [String] = []) -> [String] {
+        cleanOrder(ids + stored.filter { !ids.contains($0) })
+    }
+
+    /// `ids` after rows were dragged: the rows at `source` go to the gap before row `destination` (the way SwiftUI's
+    /// `onMove` reports it, destination counted in the list before the move). Out-of-range offsets are ignored.
+    static func dragged(_ ids: [String], from source: IndexSet, to destination: Int) -> [String] {
+        let valid = source.filter { ids.indices.contains($0) }
+        guard !valid.isEmpty, destination >= 0, destination <= ids.count else { return ids }
+        let moving = valid.sorted().map { ids[$0] }
+        var out = ids
+        for i in valid.sorted().reversed() { out.remove(at: i) }
+        out.insert(contentsOf: moving, at: destination - valid.filter { $0 < destination }.count)
+        return out
     }
 
     /// Whether `id` has a neighbour to swap with in that direction, inside its own priority group.

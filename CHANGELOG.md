@@ -3,6 +3,26 @@
 All notable changes to Votive (called Agent Overlay until 2026-10-26) are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.8.1] — 2026-11-05
+
+### Added
+- **CPU heat warning** (Settings → **Warn when the CPU is hot**, off by default). Nothing sits beside the dots. When the
+  hottest CPU die sensor passes the line (95 °C by default, 70 to 110 in Settings), or macOS reports serious or critical
+  thermal pressure (its own signal that it is slowing the chip down), the menu-bar icon does what it does for a plan
+  limit: it breathes red and fades to "CPU", then the degrees ("97°"), then back to the dots, before any limits that are
+  over 70%. It stays on until 3 °C below the line, so it does not flicker. Reduce Motion swaps the fades for cuts. With
+  the setting on, the menu also gets a line under a divider with the numbers. It reads macOS's sensor interface every
+  5 seconds, only while the setting is on, without administrator rights; the numbers stay in memory and go nowhere. That
+  interface is not a documented API: if it is missing, only the thermal-pressure signal is used. Settable by agents as
+  `cpuHeatWarning` and `cpuHeatWarningAt`. Checked on an M3 Pro.
+- **Reorder with a grab handle.** **Reorder sessions…** in the menu opens a small panel under the menu-bar icon, and
+  **Dot order** in the Votive window shows the same list: every session has a grab handle, drag a row to move its dot.
+  High-priority sessions are their own group and stay first; a row only moves inside its group, so dragging never
+  changes priority. **Move earlier / Move later** stay as they were. The window's list also follows a reorder at once now.
+- **`usage-tune.js`**: backtests the habits model's two settings (how fast old days stop counting, how hard rarely seen
+  hours are pulled toward the usual day) on your own history and only recommends a change when it beats the noise over at
+  least 14 whole days. It changes nothing by itself.
+
 ## [1.8.0] — 2026-11-02
 
 This release also carries everything in 1.7.1 below, which was never published on its own (the downloadable zip and the new README front page).

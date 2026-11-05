@@ -38,6 +38,7 @@ Delete this note once the server has no dependencies (AGEN-21).]*
 | Process information | macOS (`sysctl`, `/bin/ps`, `pgrep`) | Whether a session's process still runs, and which terminal hosts it |
 | Agent configuration files | `~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.gemini/settings.json`, `~/.qwen/settings.json`, `~/.cursor/hooks.json`, `~/.codeium/windsurf/hooks.json`, `~/.copilot/hooks/` | The installer and `diagnose` check and edit the hook entries |
 | Its own preferences | macOS preferences for `dev.votive.Votive` | Your menu settings |
+| The CPU temperature, only if you turn on **Settings → Warn when the CPU is hot** | macOS's own sensor interface (the die temperature sensors, read every 5 seconds without administrator rights) and the system's thermal-pressure level (`ProcessInfo.thermalState`) | The heat warning in the menu-bar icon (and one line in the menu). Kept in memory only, never written to a file, never sent anywhere |
 | Which programs listen on which TCP ports, only if you turn on **Settings → Developer tools → Ports** | `/usr/sbin/lsof` (program name, process id, port, whether it listens on this Mac only), then for each program macOS itself (`proc_pidpath`, working folder, whether it is frozen). Command-line arguments are never read. Nothing is sent anywhere. | The Ports item: every listening port, who uses it, free or in use, paused or not |
 
 The app itself reads the first seven rows, process information and, only when you turn Ports on, the list of listening ports. The hooks, the status-line

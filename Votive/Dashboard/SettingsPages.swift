@@ -9,6 +9,8 @@ struct GeneralSettingsPage: View {
     @AppStorage("shapesMode") private var shapes = false
     @AppStorage("usageAlertOn") private var usagePulse = true
     @AppStorage("stuckThresholdMinutes") private var stuck = 8
+    @AppStorage("cpuHeatWarn") private var cpuHeatWarn = false
+    @AppStorage("cpuHeatAt") private var cpuHeatAt = CpuTemperature.defaultHotAt
     @AppStorage(DashboardModel.targetKey) private var target = DashboardModel.defaultTarget
     @AppStorage("insightsShow") private var showInsights = true
     @State private var folders: [(path: String, since: Double)] = []
@@ -22,12 +24,19 @@ struct GeneralSettingsPage: View {
             Section {
                 Toggle("Colorblind shapes", isOn: $shapes)
                 Toggle("Show limits over \(Int(UsageSnapshot.alertThreshold))% in the menu bar", isOn: $usagePulse)
+                Toggle("Warn when the CPU is hot", isOn: $cpuHeatWarn)
+                if cpuHeatWarn {
+                    Picker("Warn when the CPU is over", selection: $cpuHeatAt) {
+                        if ![85, 90, 95, 100, 105].contains(cpuHeatAt) { Text("\(cpuHeatAt) °C").tag(cpuHeatAt) }
+                        ForEach([85, 90, 95, 100, 105], id: \.self) { Text("\($0) °C").tag($0) }
+                    }
+                }
                 Picker("Stuck threshold", selection: $stuck) {
                     if !Self.stuckChoices.contains(where: { $0.minutes == stuck }) { Text("\(stuck) minutes").tag(stuck) }
                     ForEach(Self.stuckChoices, id: \.minutes) { Text($0.label).tag($0.minutes) }
                 }
             } header: { Text("Menu bar") } footer: {
-                Text("Shapes give every state its own outline as well as its own color. A busy session with no activity for the stuck threshold shows as stuck.")
+                Text("Shapes give every state its own outline as well as its own color. A busy session with no activity for the stuck threshold shows as stuck. The CPU heat warning is off by default: when the hottest CPU die sensor passes the line, or macOS reports serious thermal pressure, the menu-bar icon flashes red and shows CPU and the degrees, like a plan limit. The sensor is read on this Mac only.")
             }
 
             Section {

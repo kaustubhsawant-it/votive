@@ -43,6 +43,7 @@ struct DashboardView: View {
         case .habits:   HabitsPage()
         case .history:  HistoryPage()
         case .general:  GeneralSettingsPage()
+        case .order:    OrderPage()
         case .alerts:   AlertSettingsPage()
         case .colors:   ColorSettingsPage()
         case .sounds:   SoundSettingsPage()

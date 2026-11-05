@@ -5,7 +5,7 @@ import SwiftUI
 /// Where the window can open.
 enum DashboardPage: String, CaseIterable, Identifiable {
     case overview, forecast, habits, history
-    case general, alerts, colors, sounds, agents
+    case general, order, alerts, colors, sounds, agents
 
     var id: String { rawValue }
 
@@ -16,6 +16,7 @@ enum DashboardPage: String, CaseIterable, Identifiable {
         case .habits:   return "Habits"
         case .history:  return "History"
         case .general:  return "General"
+        case .order:    return "Dot order"
         case .alerts:   return "Alerts"
         case .colors:   return "Colors"
         case .sounds:   return "Sounds"
@@ -30,6 +31,7 @@ enum DashboardPage: String, CaseIterable, Identifiable {
         case .habits:   return "clock.badge.checkmark"
         case .history:  return "calendar"
         case .general:  return "gearshape"
+        case .order:    return "arrow.up.arrow.down"
         case .alerts:   return "bell"
         case .colors:   return "paintpalette"
         case .sounds:   return "speaker.wave.2"
@@ -38,7 +40,7 @@ enum DashboardPage: String, CaseIterable, Identifiable {
     }
 
     static let usagePages: [DashboardPage] = [.overview, .forecast, .habits, .history]
-    static let settingsPages: [DashboardPage] = [.general, .alerts, .colors, .sounds, .agents]
+    static let settingsPages: [DashboardPage] = [.general, .order, .alerts, .colors, .sounds, .agents]
 }
 
 /// What the window shows. The menu bar item stays the always-on view and keeps feeding this (`usage`, `sessions`); the

@@ -35,6 +35,8 @@ enum AgentChanges {
     private static let allowed: [String: (key: String, kind: Kind)] = [
         "colorblindShapes": ("shapesMode", .bool),
         "usagePulse": ("usageAlertOn", .bool),
+        "cpuHeatWarning": ("cpuHeatWarn", .bool),
+        "cpuHeatWarningAt": ("cpuHeatAt", .int(70...110)),
         "notifyOnRequest": ("customNotifyOn", .bool),
         "bannerOnEveryChange": ("notificationsOn", .bool),
         "popupOnEveryChange": ("dialogAlertsOn", .bool),

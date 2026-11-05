@@ -31,6 +31,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private var carouselFrame: UsageCarousel.Frame?
     private var carouselSig = ""
 
+    /// The CPU heat warning, off until switched on in Settings: while the chip is hot the icon loops through "CPU" and the degrees, like it
+    /// does for a plan limit (see UsageCarousel and CpuTemperature). Not a permanent number beside the dots.
+    private let cpuTemp = CpuTemperatureMonitor()
+    private var heatHot = false   // the warning is on now; kept between samples so it does not flicker around the line
+    private let reorder = ReorderPopover()
+
     private let defaults = UserDefaults.standard
     private let debug = ProcessInfo.processInfo.environment["VOTIVE_DEBUG"] == "1"
 
@@ -100,6 +106,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         set { defaults.set(newValue, forKey: "usageAlertOn") }
     }
 
+    private var cpuHeatOn: Bool {
+        get { defaults.bool(forKey: "cpuHeatWarn") }
+        set { defaults.set(newValue, forKey: "cpuHeatWarn") }
+    }
+    private var cpuHeatAt: Int {
+        get { defaults.object(forKey: "cpuHeatAt") == nil ? CpuTemperature.defaultHotAt : CpuTemperature.clampedHotAt(defaults.integer(forKey: "cpuHeatAt")) }
+        set { let clamped = CpuTemperature.clampedHotAt(newValue); defaults.set(clamped, forKey: "cpuHeatAt") }
+    }
+
     override init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
@@ -110,6 +125,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         statusItem.menu = menu
         render(force: true)
         updateAnimation()
+        cpuTemp.onChange = { [weak self] _ in self?.heatChanged() }
+        updateHeatWarning()
         // Settings can change from outside the menu (the MCP `settings` tool, or `defaults`
         // in a terminal). macOS delivers those changes through KVO, so redraw right away.
         for key in Self.observedDefaults {
@@ -165,7 +182,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         setImage(angle: angle, dimmed: dimmed)
     }
 
-    private static let observedDefaults = ["shapesMode", "usageAlertOn"]
+    private static let observedDefaults = ["shapesMode", "usageAlertOn", "cpuHeatWarn", "cpuHeatAt"]
 
     override func observeValue(forKeyPath keyPath: String?, of object: Any?,
                                change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
@@ -178,6 +195,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             self.render(force: true)
             self.updateAnimation()
             self.updateUsagePulse()
+            self.updateHeatWarning()
         }
     }
 
@@ -220,15 +238,38 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         updateUsagePulse()
     }
 
+    // MARK: - CPU heat warning
+
+    /// Starts or stops reading, then rebuilds the loop. Nothing is read while the setting is off.
+    private func updateHeatWarning() {
+        if cpuHeatOn { cpuTemp.start() } else { cpuTemp.stop(); heatHot = false }
+        heatChanged()
+    }
+
+    /// A new sample or a changed setting: is the chip hot now? The icon's loop is rebuilt (it keeps its place if it was already running).
+    private func heatChanged() {
+        let snap = cpuHeatOn ? cpuTemp.latest : nil
+        heatHot = snap.map {
+            CpuTemperature.isHot(hottest: $0.reading?.hottest, thermalState: $0.thermalState, hotAt: cpuHeatAt, wasHot: heatHot)
+        } ?? false
+        updateUsagePulse()
+    }
+
+    /// "97°" while the warning is on, else nil.
+    private var heatCaption: String? {
+        guard heatHot, let snap = cpuTemp.latest else { return nil }
+        return CpuTemperature.caption(hottest: snap.reading?.hottest)
+    }
+
     // MARK: - Usage carousel
 
-    /// While a limit is over the threshold, the icon loops: the dots on a slowly breathing red
+    /// While a limit is over the threshold (or the CPU is hot), the icon loops: the dots on a slowly breathing red
     /// background (~2.4 s per breath), then a fade to the limit's name ("Weekly"), then its
     /// number ("74%"), then back to the dots — see `UsageCarousel` for the timeline. Behind
     /// the text the red holds steady so the white text reads. Its own timer, separate from
     /// the dot animation: both just redraw via `setImage`, which reads the current state.
     private func updateUsagePulse() {
-        let next = usageAlertOn ? usage.flatMap { UsageCarousel($0) } : nil
+        let next = UsageCarousel.make(snapshot: usage, limitsOn: usageAlertOn, heat: heatCaption)
         if next != nil, carousel == nil { carouselStart = Date() }
         // A new number (74% → 75%) changes the captions but keeps the loop where it is.
         carousel = next
@@ -455,9 +496,19 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             let summary = NSMenuItem(title: summaryLine(), action: nil, keyEquivalent: "")
             summary.isEnabled = false
             menu.addItem(summary)
+            if sessions.count > 1 {
+                menu.addItem(actionItem("Reorder sessions…", symbol: "arrow.up.arrow.down", #selector(openReorder)))
+            }
         }
 
         addAgentChanges(menu)
+
+        if cpuHeatOn, let snap = cpuTemp.latest {
+            menu.addItem(.separator())   // the temperature is not part of the session list: a divider between them
+            let t = NSMenuItem(title: CpuTemperature.summary(snap.reading, thermalState: snap.thermalState), action: nil, keyEquivalent: "")
+            t.isEnabled = false
+            menu.addItem(t)
+        }
 
         menu.addItem(.separator())
         menu.addItem(actionItem("Open Votive…", symbol: "chart.line.uptrend.xyaxis", #selector(openDashboard), key: "d"))
@@ -511,6 +562,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         addToggle(sub, title: "Colorblind shapes", on: shapesMode, action: #selector(toggleShapes))
         addToggle(sub, title: "Show limits over 70% in the menu bar", on: usageAlertOn, action: #selector(toggleUsageAlert))
         sub.addItem(stuckThresholdMenuItem())
+        addToggle(sub, title: "Warn when the CPU is hot", on: cpuHeatOn, action: #selector(toggleCpuHeat))
+        sub.items.last?.toolTip = "When the chip gets very hot, or macOS starts slowing it down, the menu-bar icon flashes red and shows CPU and the degrees, the way it does for a plan limit."
+        if cpuHeatOn { sub.addItem(cpuHeatAtMenuItem()) }
 
         sub.addItem(.separator())
         sub.addItem(.sectionHeader(title: "Alerts"))
@@ -636,6 +690,48 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func setStuckThreshold(_ sender: NSMenuItem) {
         guard let minutes = sender.representedObject as? Int else { return }
         stuckThresholdMinutes = minutes
+    }
+
+    /// Opens the reorder panel under the menu-bar icon (after the menu has closed): drag a row by its handle to move its dot.
+    @objc private func openReorder() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            NSApp.activate(ignoringOtherApps: true)
+            self.reorder.toggle(relativeTo: self.statusItem.button)
+        }
+    }
+
+    @objc private func toggleCpuHeat() {
+        cpuHeatOn.toggle()
+        updateHeatWarning()
+    }
+
+    private static let cpuHeatAtOptions = [85, 90, 95, 100, 105]
+
+    private func cpuHeatAtMenuItem() -> NSMenuItem {
+        let root = NSMenuItem(title: "Warn when CPU is over", action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        let current = cpuHeatAt
+        if !Self.cpuHeatAtOptions.contains(current) {
+            let custom = NSMenuItem(title: "\(current)°C", action: nil, keyEquivalent: "")
+            custom.state = .on
+            custom.isEnabled = false
+            sub.addItem(custom)
+        }
+        for degrees in Self.cpuHeatAtOptions {
+            let item = NSMenuItem(title: "\(degrees)°C", action: #selector(setCpuHeatAt(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = degrees
+            item.state = degrees == current ? .on : .off
+            sub.addItem(item)
+        }
+        root.submenu = sub
+        return root
+    }
+
+    @objc private func setCpuHeatAt(_ sender: NSMenuItem) {
+        guard let degrees = sender.representedObject as? Int else { return }
+        cpuHeatAt = degrees
     }
 
     private func recapLine(_ s: AgentSession) -> String {
@@ -893,6 +989,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let pins = priority.pins, folders = priority.folders
         sessions = SessionPriority.order(rawSessions, pins: pins, folders: folders, positions: priority.positions)
         pinnedCount = SessionPriority.pinnedCount(sessions, pins: pins, folders: folders)
+        DashboardModel.shared.sessions = sessions   // the window's list follows a reorder at once, not at the next scan
         render(force: true)
     }
 

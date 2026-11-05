@@ -1,12 +1,13 @@
 import Foundation
 
-/// The menu-bar loop shown while a plan limit is over the threshold:
+/// The menu-bar loop shown while a plan limit is over the threshold, or the CPU is hot:
 ///
 ///     dots → "Weekly" → "74%" → dots → …
 ///
 /// with a fade out and a fade in between each frame. With more than one limit over the
 /// threshold, each one gets its own name + number pair, the worst first. The menu bar never
-/// says which limit is hot otherwise, which is the whole point of this loop.
+/// says which limit is hot otherwise, which is the whole point of this loop. A hot CPU is one more
+/// pair ("CPU", "97°"), first, because it is the one that needs you now.
 ///
 /// Pure timeline math: `frame(at:)` turns a time into what to draw, so the controller only
 /// owns a timer and the result is easy to reason about (and to test).
@@ -38,6 +39,13 @@ struct UsageCarousel: Equatable {
     /// resets later, since it stays a problem longer). The agent's name goes in front only
     /// when more than one agent reports usage, so a lone "Weekly" can't be ambiguous.
     init?(_ snapshot: UsageSnapshot, threshold: Double = UsageSnapshot.alertThreshold) {
+        let captions = Self.limitCaptions(snapshot, threshold: threshold)
+        guard !captions.isEmpty else { return nil }
+        self.captions = captions
+    }
+
+    /// name, number, name, number for the limits over `threshold`, worst first; empty when none is.
+    static func limitCaptions(_ snapshot: UsageSnapshot, threshold: Double = UsageSnapshot.alertThreshold) -> [String] {
         let named = snapshot.agents.count > 1
         var hot: [(agent: AgentUsage, window: UsageWindow)] = []
         for agent in snapshot.agents {
@@ -45,7 +53,6 @@ struct UsageCarousel: Equatable {
                 hot.append((agent, window))
             }
         }
-        guard !hot.isEmpty else { return nil }
         hot.sort { a, b in
             if a.window.usedPercentage != b.window.usedPercentage {
                 return a.window.usedPercentage > b.window.usedPercentage
@@ -57,7 +64,16 @@ struct UsageCarousel: Equatable {
             captions.append(named ? "\(agent.agentName) \(window.label)" : window.label)
             captions.append("\(Int(window.usedPercentage.rounded()))%")
         }
-        self.captions = captions
+        return captions
+    }
+
+    /// The loop for what is wrong now: a hot CPU (`heat` is its number, "97°") first, then the limits over the threshold
+    /// when `limitsOn`. nil when nothing is.
+    static func make(snapshot: UsageSnapshot?, limitsOn: Bool, heat: String?) -> UsageCarousel? {
+        var captions: [String] = []
+        if let heat { captions += ["CPU", heat] }
+        if limitsOn, let snapshot { captions += limitCaptions(snapshot) }
+        return captions.isEmpty ? nil : UsageCarousel(captions: captions)
     }
 
     init(captions: [String]) { self.captions = captions }

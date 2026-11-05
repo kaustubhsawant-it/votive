@@ -30,6 +30,14 @@ const SETTINGS = {
     key: 'usageAlertOn', type: 'bool', default: true,
     description: 'While any plan limit is over 70%, pulse the menu-bar icon red and show which limit and how full (e.g. Weekly 74%).',
   },
+  cpuHeatWarning: {
+    key: 'cpuHeatWarn', type: 'bool', default: false,
+    description: 'Warn when the CPU is hot: the menu-bar icon flashes red and shows CPU and the degrees, like a plan limit, when the hottest die sensor passes the line or macOS reports serious thermal pressure. Reads the sensor on this Mac only, and only while this is on.',
+  },
+  cpuHeatWarningAt: {
+    key: 'cpuHeatAt', type: 'int', default: 95, min: 70, max: 110,
+    description: 'Degrees C at which the CPU heat warning starts (it stays on until 3 degrees below).',
+  },
   notifyOnRequest: {
     key: 'customNotifyOn', type: 'bool', default: true,
     description: 'Show a panel when a session was asked to let you know (the notify tool or /notify).',

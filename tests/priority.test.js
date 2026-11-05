@@ -90,6 +90,15 @@ test('priority: pinned sessions come first, in pin order; the rest keep their or
     'print("unpin", ids(SessionPriority.order(five, pins: [:], positions: m1 ?? [])))',
     'print("keepStale", SessionPriority.moved("c", by: -1, displayed: shown, pins: pp, stored: ["zzz", "c"])?.last ?? "nil")',
     'print("missing", SessionPriority.moved("nope", by: 1, displayed: shown, pins: pp) == nil, SessionPriority.moved("c", by: 0, displayed: shown, pins: pp) == nil)',
+    // dragging (the grab handle): rows move inside their group; the result is a whole order that never changes priority
+    'let abc = ["a", "b", "c", "d"]',
+    'print("dragDown", SessionPriority.dragged(abc, from: IndexSet(integer: 0), to: 3), "|", SessionPriority.dragged(abc, from: IndexSet(integer: 0), to: 4), "|", SessionPriority.dragged(abc, from: IndexSet(integer: 0), to: 1), "|", SessionPriority.dragged(abc, from: IndexSet(integer: 0), to: 0))',
+    'print("dragUp", SessionPriority.dragged(abc, from: IndexSet(integer: 3), to: 1), "|", SessionPriority.dragged(abc, from: IndexSet(integer: 3), to: 0), "|", SessionPriority.dragged(abc, from: IndexSet(integer: 2), to: 3))',
+    'print("dragMany", SessionPriority.dragged(abc, from: IndexSet([0, 1]), to: 4), "|", SessionPriority.dragged(abc, from: IndexSet([1, 3]), to: 0))',
+    'print("dragBad", SessionPriority.dragged(abc, from: IndexSet(integer: 9), to: 1), "|", SessionPriority.dragged(abc, from: IndexSet(integer: 1), to: 9), "|", SessionPriority.dragged(abc, from: IndexSet(integer: 1), to: -1), "|", SessionPriority.dragged([], from: IndexSet(integer: 0), to: 0))',
+    'let dragged = SessionPriority.dragged(["a", "b", "c"], from: IndexSet(integer: 2), to: 0)',
+    'print("dragStore", SessionPriority.placed(["d", "e"] + dragged, stored: ["zzz", "a"]), "|", ids(SessionPriority.order(five, pins: pp, positions: SessionPriority.placed(["d", "e"] + dragged, stored: []))))',
+    'print("dragCross", ids(SessionPriority.order(five, pins: pp, positions: ["a", "b", "c", "d", "e"])))',
     'print("cleanOrder", SessionPriority.cleanOrder(["a", "", "a", 3, "b", String(repeating: "x", count: 301)]), SessionPriority.cleanOrder("no"), SessionPriority.cleanOrder((1...150).map { "k\\($0)" }).count)',
     'let ostore = PriorityStore(defaults: UserDefaults(suiteName: "dev.votive.test.order.\\(getpid())")!)',
     'ostore.setPositions(["b", "a"])',
@@ -160,6 +169,12 @@ test('priority: pinned sessions come first, in pin order; the rest keep their or
   assert.equal(out.unpin, 'd,e,a,c,b', 'the hand-set order survives a change of pins');
   assert.equal(out.keepStale, 'zzz', 'older entries stay after the shown ones');
   assert.equal(out.missing, 'true true');
+  assert.equal(out.dragDown, '["b", "c", "a", "d"] | ["b", "c", "d", "a"] | ["a", "b", "c", "d"] | ["a", "b", "c", "d"]', 'a drop is the gap before the row at that offset, counted as SwiftUI counts it');
+  assert.equal(out.dragUp, '["a", "d", "b", "c"] | ["d", "a", "b", "c"] | ["a", "b", "c", "d"]');
+  assert.equal(out.dragMany, '["c", "d", "a", "b"] | ["b", "d", "a", "c"]', 'several rows keep their order among themselves');
+  assert.equal(out.dragBad, '["a", "b", "c", "d"] | ["a", "b", "c", "d"] | ["a", "b", "c", "d"] | []', 'offsets that do not exist change nothing');
+  assert.equal(out.dragStore, '["d", "e", "c", "a", "b", "zzz"] | d,e,c,a,b', 'a drag in the unpinned group is stored whole, older entries after; pinned sessions stay first');
+  assert.equal(out.dragCross, 'd,e,a,b,c', 'even a stored order that puts an unpinned session first cannot lift it above the pinned ones');
   assert.equal(out.cleanOrder, '["a", "b"] [] 100', 'bad entries are dropped, repeats removed, capped at 100');
   assert.equal(out.ostore, '["b", "a"] 0 0', 'the order is stored on its own, apart from pins and folders');
   assert.equal(out.oreset, '0');
@@ -190,4 +205,28 @@ test('priority: the wiring: sort once for menu and dots, filter automatic alerts
   for (const f of ['mcp-server/index.js', 'Scripts/overlay-settings.js', 'Scripts/mcp-guard.js']) {
     assert.ok(!/prioritySessions|priorityFolders|alertsOnlyPriority|sessionOrder|SessionPriority/.test(read(f)), f + ' must not expose session priority');
   }
+});
+
+test('reorder panel: the popover gets its real size before it is shown, so it cannot open with its top above the screen', () => {
+  const src = read('Votive/Dashboard/SessionOrder.swift').replace(/\/\/.*$/gm, '');
+  const at = (re) => { const m = re.exec(src); assert.ok(m, String(re)); return m.index; };
+  const layout = at(/layoutSubtreeIfNeeded\(\)/), size = at(/contentSize = host\.view\.fittingSize/), show = at(/\.show\(relativeTo/);
+  assert.ok(layout < size && size < show, 'lay out, measure, then show');
+  assert.match(src, /sizingOptions = \[\.preferredContentSize\]/, 'it keeps following the content while open');
+});
+
+test('reorder by grab handle: one list for the menu-bar panel and the window, dragging stays inside a group, the menu item and the page exist', () => {
+  const list = read('Votive/Dashboard/SessionOrder.swift');
+  assert.equal((list.match(/\.onMove\b/g) || []).length, 2, 'one drag handler per priority group, so a drag cannot cross from one group to the other');
+  assert.match(list, /line\.3\.horizontal/, 'the grab handle');
+  assert.match(list, /SessionPriority\.dragged\(/);
+  assert.match(list, /store\.setPositions\(SessionPriority\.placed\(/);
+  assert.match(list, /PriorityStore\.didChange/, 'tells the menu-bar item to redraw the dots');
+  assert.ok(!/togglePriority|\.toggle\(|toggleFolder/.test(list.replace(/\/\/.*$/gm, '')), 'a drag never pins, unpins or marks a folder');
+  const ctl = read('Votive/UI/StatusItemController.swift');
+  assert.match(ctl, /"Reorder sessions…"/);
+  assert.match(ctl, /Move earlier/, 'Move earlier / Move later are kept');
+  assert.match(ctl, /DashboardModel\.shared\.sessions = sessions\s+\/\/ the window's list follows a reorder/, 'a reorder reaches the window at once');
+  assert.match(read('Votive/Dashboard/DashboardView.swift'), /case \.order:\s+OrderPage\(\)/);
+  assert.match(read('Votive/Dashboard/DashboardModel.swift'), /case general, order, alerts/);
 });

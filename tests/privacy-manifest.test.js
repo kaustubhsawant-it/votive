@@ -112,7 +112,7 @@ test('privacy: the Swift app has exactly the write calls PRIVACY.md describes', 
   assert.deepEqual(found, {
     'Dashboard/DashboardView.swift': 2,      // the page the Votive window was last on, and whether it shows the insights card, in macOS preferences
     'Dashboard/ForecastPage.swift': 1,       // the weekly target (a number), in macOS preferences
-    'Dashboard/SettingsPages.swift': 12,     // the menu's own settings, edited from the Votive window (the same preferences) plus the insights card switch
+    'Dashboard/SettingsPages.swift': 14,     // the menu's own settings, edited from the Votive window (the same preferences) plus the insights card switch and the two CPU heat warning settings
     'Services/AgentChanges.swift': 3,        // Undo in the Agent changes menu: puts one known preference back
     'Services/LegacySettings.swift': 2,      // one-time copy of the settings of the earlier app name (Agent Overlay)
     'Services/OverlayStore.swift': 2,        // deletes its own stale event files
@@ -125,7 +125,7 @@ test('privacy: the Swift app has exactly the write calls PRIVACY.md describes', 
     'Services/Sounds.swift': 2,              // sound choices in macOS preferences
     'Services/StatusCoordinator.swift': 1,   // ~/.votive/events
     'Services/UsageStore.swift': 1,          // ~/.votive/usage
-    'UI/StatusItemController.swift': 9,      // preferences (including the Let agents change settings switch and the Ports switch)
+    'UI/StatusItemController.swift': 11,     // preferences (including the Let agents change settings switch, the Ports switch and the two CPU heat warning settings)
   });
 });
 

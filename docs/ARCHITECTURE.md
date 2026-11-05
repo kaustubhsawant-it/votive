@@ -559,7 +559,7 @@ usage section.
 | Session state | `~/.votive/events/{agent}--{session}.json` (both parts made filesystem-safe) | the event script (`lastEvent`, `lastEventAt`, `pid`, `cwd`, `prompt`, `transcriptPath`); `notifyMessage`/`notifyAt` from the notify tool; read and pruned by `OverlayStore` |
 | Plan usage | `~/.votive/usage/{agent}.json`, plus `usage/wrapped.json` (the Claude Code status line being wrapped) | status-line wrapper, event script; read by `UsageStore` |
 | Prompt snippets | `~/.votive/snippets.json` (plain JSON array of strings) | `SnippetStore` |
-| Menu toggles | `UserDefaults.standard` keys `shapesMode`, `notificationsOn`, `dialogAlertsOn` (both default **false** — automatic alerts), `customNotifyOn` (default **true**), `soundsOn` (default **true**), `soundNotify` … `soundDone` (see § Sounds), `usageAlertOn` (default **true**), `stuckThresholdMinutes` (default `8`) | `StatusItemController` (read by `AgentScanner` too, for the stuck threshold) |
+| Menu toggles | `UserDefaults.standard` keys `shapesMode`, `notificationsOn`, `dialogAlertsOn` (both default **false** — automatic alerts), `customNotifyOn` (default **true**), `soundsOn` (default **true**), `soundNotify` … `soundDone` (see § Sounds), `usageAlertOn` (default **true**), `cpuHeatWarn` (default **false**), `cpuHeatAt` (default `95`, clamped 70–110), `stuckThresholdMinutes` (default `8`) | `StatusItemController` (read by `AgentScanner` too, for the stuck threshold) |
 | Hook entries | each agent's own config file (see [The hook contract](#the-hook-contract)) | `install-agents.js` |
 | MCP registration | Claude Code's user-scope MCP config (`claude mcp add --scope user votive …`) | `install.sh`, idempotent (remove-then-add) |
 

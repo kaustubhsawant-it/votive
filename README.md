@@ -234,7 +234,8 @@ node Scripts/doctor.js                                     # check the install
 node Scripts/doctor.js --fix                               # repair what failed
 ```
 
-Settings you can change: `colorblindShapes`, `usagePulse`, `notifyOnRequest`,
+Settings you can change: `colorblindShapes`, `usagePulse`, `cpuHeatWarning` (flash the icon red with CPU and the degrees
+when the chip is hot, off by default), `cpuHeatWarningAt` (70–110 °C, 95 by default), `notifyOnRequest`,
 `bannerOnEveryChange`, `popupOnEveryChange`, `stuckThresholdMinutes` (0–240, 0 turns it off),
 `sounds` (on/off) and `soundNotify`, `soundNeedsYou`, `soundError`, `soundStuck`,
 `soundStopped`, `soundDone` (`none`, a macOS sound such as `Hero`, or a file in

@@ -158,7 +158,7 @@ const REPAIR_TOOL = {
 };
 
 const server = new Server(
-  { name: 'votive', version: '1.8.0' },
+  { name: 'votive', version: '1.8.1' },
   { capabilities: { tools: {} } }
 );
 
